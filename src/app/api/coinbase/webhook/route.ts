@@ -1,148 +1,116 @@
-import { headers } from 'next/headers';
-import { NextResponse } from 'next/server';
-import crypto from 'crypto';
-// Import Admin SDK functions
-import { getAdminFirestoreInstance } from '@/lib/firebase-admin';
-import { 
-  checkWebhookEventProcessed,
-  recordWebhookEvent, 
-  updateWebhookEventStatus,
-  checkPaymentExistsByMetadata,
-  processCompletedCoinbaseCharge
-} from '@/lib/server-firestore';
-import type { CoinbaseWebhookEvent } from '@/lib/definitions';
-import type { WebhookPayload } from '@/lib/server-firestore';
+import { NextRequest, NextResponse } from 'next/server';
+// import { headers } from 'next/headers'; // Unused in demo
+// import crypto from 'crypto'; // Unused in demo
+// import { Event } from 'coinbase-commerce-node'; // Unused in demo
+// import { getAdminFirestoreInstance } from '@/lib/firebase-admin'; // Unused in demo
+// import { // Unused in demo
+//   checkWebhookEventProcessed,
+//   recordWebhookEvent,
+//   updateWebhookEventStatus,
+//   checkPaymentExistsByMetadata,
+//   processCompletedCoinbaseCharge,
+//   WebhookPayload
+// } from '@/lib/server-firestore';
+// import { CoinbaseWebhookEvent } from '@/types/coinbase'; // Unused in demo
 
-// Define webhook secret from environment
-// const coinbaseWebhookSecret = process.env.COINBASE_COMMERCE_WEBHOOK_SECRET; // Not needed in demo
-
-// Set of event types we want to process
-const relevantEvents = new Set([
-  'charge:confirmed',
-  'charge:resolved',
-  // Add others as needed
-]);
-
-// Coinbase webhook handler - DISABLED FOR DEMO
-export async function POST(req: Request) {
-  console.log("[DEMO MODE] Coinbase webhook endpoint hit, but processing is disabled.");
-  return NextResponse.json({ received: true, message: "Demo mode: Webhook processing disabled." });
-
-/* --- Original Webhook Logic (Disabled for Demo) --- 
-  // console.log('[Coinbase Webhook] ===== RECEIVED COINBASE WEBHOOK REQUEST ====='); // Removed
-  
-  if (!coinbaseWebhookSecret) {
-    console.error('[Coinbase Webhook] Error: Webhook secret is not configured');
-    return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
-  }
-
-  // 1. Get and validate the signature
-  const headersList = await headers();
+// Coinbase Commerce webhook handler - DISABLED FOR DEMO
+export async function POST(request: NextRequest) {
+  // --- Verify the webhook signature (DISABLED FOR DEMO) --- 
+  /* // Original verification logic
+  const headersList = headers();
   const signature = headersList.get('x-cc-webhook-signature');
+  const rawBody = await request.text();
 
-    if (!signature) {
-    console.error('[Coinbase Webhook] Error: Missing x-cc-webhook-signature header');
-       return NextResponse.json({ error: 'Missing signature header' }, { status: 400 });
-    }
-    
-  // 2. Get the raw body
-  const rawBody = await req.text();
-  // console.log('[Coinbase Webhook] Received Raw Body:', rawBody); // Removed
-  
-  // 3. Verify the signature
-  let event: CoinbaseWebhookEvent;
-  try {
-    // Verify signature
-    const hmac = crypto.createHmac('sha256', coinbaseWebhookSecret);
-    const digest = hmac.update(rawBody).digest('hex');
-    
-    if (digest !== signature) {
-      console.error('[Coinbase Webhook] Invalid signature');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
-    
-    // Parse the full payload first
-    const fullPayload = JSON.parse(rawBody);
-
-    // Extract the actual event object which is nested
-    if (!fullPayload || typeof fullPayload !== 'object' || !fullPayload.event) {
-        console.error('[Coinbase Webhook] Invalid payload structure: Missing nested event object.');
-        return NextResponse.json({ error: 'Invalid payload structure.' }, { status: 400 });
-    }
-    event = fullPayload.event as CoinbaseWebhookEvent; // Assign the nested event object
-
-    // console.log(`[Coinbase Webhook] Event verified: ${event.type} | Event ID: ${event.id} (Payload ID: ${topLevelEventId})`); // Removed
-    
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error(`[Coinbase Webhook] Error validating webhook: ${errorMessage}`);
-    return NextResponse.json({ error: `Webhook validation error: ${errorMessage}` }, { status: 400 });
+  if (!signature) {
+    return NextResponse.json({ error: 'Coinbase signature missing' }, { status: 400 });
   }
 
-  // 4. Process the verified event
-  if (relevantEvents.has(event.type)) {
-    let db;
-    try {
-      // console.log('[Coinbase Webhook] Getting Admin Firestore instance...'); // Removed
-      db = await getAdminFirestoreInstance();
-      // console.log('[Coinbase Webhook] Admin Firestore instance obtained.'); // Removed
-      
-      // Check if this event has already been processed
-      const isProcessed = await checkWebhookEventProcessed(db, event.id, 'coinbase');
-      if (isProcessed) {
-        // console.log(`[Coinbase Webhook] Event ${event.id} already processed. Skipping.`); // Removed
-        return NextResponse.json({ received: true, message: 'Event already processed' });
-      }
+  const webhookSecret = process.env.COINBASE_COMMERCE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+     console.error('Coinbase webhook secret is not set.');
+     return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
+  }
 
-      // Record the raw event
-      // recordWebhookEvent logs internally
-      const webhookEventRef = await recordWebhookEvent(db, event.id, 'coinbase', event.type, event.data as unknown as WebhookPayload);
-      // console.log(`[Coinbase Webhook] Event ${event.id} recorded.`); // Removed
+  let event: Event;
+  try {
+    // Verify the event using the library
+    // Note: The library might have internal issues or require specific Node crypto features
+    event = Event.verifyWebhookSig(rawBody, signature, webhookSecret);
+  } catch (error: any) {
+    console.error('Error verifying Coinbase webhook signature:', error.message);
+    return NextResponse.json({ error: `Webhook Error: ${error.message}` }, { status: 400 });
+  }
+  */
+  
+  // --- Log receipt and exit (DEMO MODE) ---
+   console.log("[DEMO MODE] Coinbase webhook endpoint hit, but processing is disabled.");
+   try {
+     const body = await request.json(); // Try to parse body for logging
+     console.log("[DEMO MODE] Received Coinbase event type:", body?.event?.type);
+   } catch { // Remove unused variable declaration
+     console.warn("[DEMO MODE] Could not parse Coinbase webhook body.")
+   }
+   return NextResponse.json({ received: true, message: "Demo mode: Coinbase webhook processing disabled." });
+
+/* --- Original Event Handling Logic (Disabled for Demo) ---
+  const db = await getAdminFirestoreInstance();
+  
+  // Check if event already processed (implement this logic)
+  const isProcessed = await checkWebhookEventProcessed(db, event.id, 'coinbase');
+  if (isProcessed) {
+     return NextResponse.json({ received: true, message: 'Event already processed' });
+  }
+
+  // Record the webhook event
+  const webhookEventRef = await recordWebhookEvent(
+    db,
+    event.id,
+    'coinbase',
+    event.type,
+    event as unknown as WebhookPayload // Cast might need refinement
+  );
+
+  try {
+    // Handle specific event types
+    if (event.type === 'charge:confirmed' || event.type === 'charge:resolved') {
+      const charge = event.data as CoinbaseWebhookEvent['data']; // Use type
       
-      try {
-        const charge = event.data;
-        
-        // Check if payment already exists
-        const paymentExists = await checkPaymentExistsByMetadata(db, { 
-          charge_id: charge.id,
-          charge_code: charge.code 
-        });
-        
-        if (paymentExists) {
-          // console.log(`[Coinbase Webhook] Payment for charge ${charge.code} already exists. Skipping creation.`); // Removed
+      // Check if payment exists using metadata (implement logic)
+      const paymentExists = await checkPaymentExistsByMetadata(db, charge.metadata); 
+      if (paymentExists) {
           await updateWebhookEventStatus(webhookEventRef, 'skipped_duplicate');
           return NextResponse.json({ received: true, message: 'Payment already exists' });
-        }
-        
-        // Process charge event
-        const paymentResult = await processCompletedCoinbaseCharge(db, event);
-        // console.log(`[Coinbase Webhook] Payment processing result:`, paymentResult); // Removed
-        
-        // Email confirmation is now handled inside processCompletedCoinbaseCharge
-        
-        await updateWebhookEventStatus(webhookEventRef, paymentResult.success ? 'processed' : 'failed', paymentResult.error);
-        
-      } catch (processingError) {
-        const errorMessage = processingError instanceof Error ? processingError.message : 'Unknown processing error';
-        console.error(`[Coinbase Webhook] Error processing event ${event.id}:`, processingError);
-        if (webhookEventRef) {
-          await updateWebhookEventStatus(webhookEventRef, 'failed', errorMessage);
-        }
       }
       
-    } catch (error) {
-      console.error('[Coinbase Webhook] Failed to handle event:', error);
-      // Check if it's a Firestore initialization error
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('Firestore Admin instance')) {
-        return NextResponse.json({ error: 'Internal server error during Firestore initialization.' }, { status: 500 });
-      }
-      return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+      // Process the confirmed/resolved charge
+      const result = await processCompletedCoinbaseCharge(db, charge);
+      await updateWebhookEventStatus(
+        webhookEventRef, 
+        result.success ? 'processed' : 'failed', 
+        result.error
+      );
+    } else if (event.type === 'charge:failed') {
+      // Handle failed charge - update status, notify admin, etc.
+       console.warn(`Coinbase charge failed: ${event.data.code}`);
+       await updateWebhookEventStatus(webhookEventRef, 'processed_failed_charge'); // Mark as processed
+    } else {
+      // Handle other event types if necessary
+       console.log(`Received unhandled Coinbase event type: ${event.type}`);
+       await updateWebhookEventStatus(webhookEventRef, 'processed_unhandled');
     }
-  } else {
-    // console.log(`[Coinbase Webhook] Ignoring irrelevant event type: ${event.type}`); // Removed
+
+    // Return a 200 OK response to Coinbase
+    return NextResponse.json({ received: true });
+
+  } catch (error: any) {
+    console.error('Error processing Coinbase event:', error);
+    if (webhookEventRef) {
+      await updateWebhookEventStatus(webhookEventRef, 'failed', error.message);
+    }
+    return NextResponse.json(
+      { error: 'Error processing Coinbase event' },
+      { status: 500 }
+    );
   }
-  
-  return NextResponse.json({ received: true });
 */
 } 

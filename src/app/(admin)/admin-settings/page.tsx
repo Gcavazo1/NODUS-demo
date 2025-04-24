@@ -1,6 +1,6 @@
 'use client'; // Needed for onClick handler and useRouter
 
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation'; // Import from next/navigation for App Router
 import { LayoutDashboard, Palette, CreditCard, FileText, ShoppingCart, Users, Menu } from 'lucide-react';
