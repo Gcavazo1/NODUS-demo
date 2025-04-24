@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 // Removed Firestore imports
 // import { db } from '@/lib/firebase';
 // import { collection, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
-import { QuoteRequest } from '@/lib/definitions'; // Import the QuoteRequest type
+import { QuoteRequest, ProjectType } from '@/lib/definitions'; // Import QuoteRequest AND ProjectType
 import {
   Table,
   TableBody,
@@ -20,7 +20,7 @@ import { format } from 'date-fns'; // For date formatting
 const generateFakeQuotes = (count = 15): QuoteRequest[] => {
   const quotes: QuoteRequest[] = [];
   const statuses: QuoteRequest['status'][] = ['new', 'viewed', 'in-progress', 'completed', 'rejected'];
-  const projectTypes = ['web-design', 'seo', 'app-dev', 'marketing', 'consulting', 'other'];
+  const projectTypes: ProjectType[] = ['website', 'ecommerce', 'consultation', 'app', 'maintenance', 'other'];
   const now = new Date();
 
   for (let i = 0; i < count; i++) {
