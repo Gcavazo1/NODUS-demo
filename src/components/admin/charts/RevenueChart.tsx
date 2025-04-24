@@ -198,12 +198,12 @@ export default function RevenueChart({ demoMode = false }: RevenueChartProps) {
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="end">
             <Calendar
-              initialFocus
               mode="range"
               defaultMonth={dateRange?.from}
               selected={dateRange}
-              onSelect={handleDateSelect} // Use the custom handler
+              onSelect={handleDateSelect}
               numberOfMonths={2}
+              initialFocus
             />
           </PopoverContent>
         </Popover>
