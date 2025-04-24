@@ -42,3 +42,4 @@ tsconfig.tsbuildinfo
 .env*.local
 .env.local
 .env
+.env.example

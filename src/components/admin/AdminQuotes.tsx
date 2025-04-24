@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
+// Removed Firestore imports
+// import { db } from '@/lib/firebase';
+// import { collection, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { QuoteRequest } from '@/lib/definitions'; // Import the QuoteRequest type
 import {
   Table,
@@ -15,33 +16,53 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns'; // For date formatting
 
-// Helper function to format Firestore Timestamp or Date to string (can be reused or moved to utils)
-const formatTimestamp = (timestamp: unknown): string => {
-  if (!timestamp) return 'N/A';
-  let date: Date;
-  if (timestamp instanceof Timestamp) {
-    date = timestamp.toDate();
-  } else if (timestamp instanceof Date) {
-    date = timestamp;
-  } else if (typeof timestamp === 'string') {
-    date = new Date(timestamp);
-  } else {
-      return 'Invalid Date';
+// --- DEMO MODE: Fake Data Generation ---
+const generateFakeQuotes = (count = 15): QuoteRequest[] => {
+  const quotes: QuoteRequest[] = [];
+  const statuses: QuoteRequest['status'][] = ['new', 'viewed', 'in-progress', 'completed', 'rejected'];
+  const projectTypes = ['web-design', 'seo', 'app-dev', 'marketing', 'consulting', 'other'];
+  const now = new Date();
+
+  for (let i = 0; i < count; i++) {
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const createdAt = new Date(now.getTime() - i * Math.random() * 10 * 24 * 60 * 60 * 1000); // Within last ~100 days
+    quotes.push({
+      id: `qt_demo_${Math.random().toString(36).substring(2, 10)}`,
+      name: `Demo User ${i + 1}`,
+      email: `user${i + 1}@demo.com`,
+      projectType: projectTypes[Math.floor(Math.random() * projectTypes.length)],
+      description: `This is a simulated quote request description for demo purposes. Request number ${i + 1}.`,
+      status: status,
+      createdAt: createdAt,
+      updatedAt: new Date(createdAt.getTime() + Math.random() * 1000 * 60 * 60 * 24), // Updated within a day
+      // Add other optional fields like budget, timeline if needed
+    });
   }
-  
-  if (isNaN(date.getTime())) {
-      return 'Invalid Date';
-  }
-  
-  try {
-      return format(date, 'PPpp'); // Format like: Aug 16, 2023 at 3:30:00 PM
-  } catch (error) {
-      console.error("Error formatting date:", error);
-      return 'Invalid Date';
-  }
+  return quotes.sort((a, b) => (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime());
+};
+// --- End DEMO MODE ---
+
+// Helper function to format Date (removed Timestamp logic)
+const formatTimestamp = (timestamp: Date | string | undefined): string => {
+   // ... (simplified formatting logic for Date)
+   if (!timestamp) return 'N/A';
+    let date: Date;
+    if (timestamp instanceof Date) {
+        date = timestamp;
+    } else if (typeof timestamp === 'string') {
+        date = new Date(timestamp);
+    } else {
+        return 'Invalid Date';
+    }
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    try {
+        return format(date, 'PPpp');
+    } catch (error) {
+        return 'Invalid Date';
+    }
 };
 
-// Helper function to get Badge variant based on status
+// Helper function to get Badge variant based on status (remains the same)
 const getStatusVariant = (status: QuoteRequest['status']): "default" | "secondary" | "destructive" | "outline" | "success" => {
     switch (status) {
         case 'new': return 'success';
@@ -53,47 +74,37 @@ const getStatusVariant = (status: QuoteRequest['status']): "default" | "secondar
     }
 }
 
-export default function AdminQuotes() {
+export default function AdminQuotes({ demoMode = false }: { demoMode?: boolean }) {
   const [quotes, setQuotes] = useState<QuoteRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Removed error state: const [error, setError] = useState<string | null>(null);
 
+  // Load fake data if in demo mode
   useEffect(() => {
-    const fetchQuotes = async () => {
+    if (demoMode) {
       setIsLoading(true);
-      setError(null);
-      try {
-        const quotesRef = collection(db, 'quoteRequests');
-        // Query the last 50 quote requests, ordered by creation date descending
-        const q = query(quotesRef, orderBy('createdAt', 'desc'), limit(50));
-        const querySnapshot = await getDocs(q);
-        
-        const fetchedQuotes: QuoteRequest[] = [];
-        querySnapshot.forEach((doc) => {
-          // Ensure the data conforms to the QuoteRequest type, including the id
-          fetchedQuotes.push({ id: doc.id, ...doc.data() } as QuoteRequest);
-        });
-        setQuotes(fetchedQuotes);
-
-      } catch (err: unknown) {
-        console.error("Error fetching quote requests:", err);
-        setError("Failed to fetch quote requests. Please try again later.");
-      } finally {
+      // Simulate async loading slightly
+      setTimeout(() => {
+         setQuotes(generateFakeQuotes());
+         setIsLoading(false);
+      }, 150);
+    } else {
+        // TODO: Implement non-demo mode loading
+        console.warn("AdminQuotes: Non-demo mode not implemented.");
         setIsLoading(false);
-      }
-    };
+    }
+  }, [demoMode]);
 
-    fetchQuotes();
-  }, []);
+  // Removed original Firestore fetching useEffect
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-4">Recent Quote Requests</h1>
+      <h1 className="text-2xl font-semibold mb-4">Recent Quote Requests (Demo)</h1>
       
-      {isLoading && <p>Loading quotes...</p>}
-      {error && <p className="text-destructive">{error}</p>}
+      {isLoading && <p>Loading demo quotes...</p>}
+      {/* Removed error display */}
 
-      {!isLoading && !error && (
+      {!isLoading && (
         <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
@@ -110,7 +121,7 @@ export default function AdminQuotes() {
               {quotes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center h-24">
-                    No quote requests found.
+                    No demo quote requests generated.
                   </TableCell>
                 </TableRow>
               ) : (

@@ -2,8 +2,6 @@
 
 import { useState, useEffect, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { auth } from '@/lib/firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation'; // Import from next/navigation for App Router
 import { LayoutDashboard, Palette, CreditCard, FileText, ShoppingCart, Users, Menu } from 'lucide-react';
 import { cn } from "@/lib/utils";
@@ -43,46 +41,31 @@ const NavItem = ({ section, label, icon, currentSection, setSection, onClick }: 
 
 export default function AdminSettingsPage() {
   const router = useRouter();
-  const [currentSection, setCurrentSection] = useState<AdminSection>('overview');
-  const [authStatus, setAuthStatus] = useState<{uid: string | null, email: string | null}>({ uid: null, email: null });
+  const [currentSection, setCurrentSection] = useState<AdminSection>('appearance'); // Default to appearance for demo
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setAuthStatus({
-          uid: user.uid,
-          email: user.email,
-        });
-      } else {
-        setAuthStatus({ uid: null, email: null });
-        // Optional: Redirect to login if not signed in
-        // router.push('/admin/login');
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
+  // --- DEMO LOGOUT --- 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      router.push('/admin/login'); // Redirect to login after sign out
+      // Remove the demo auth flag from local storage
+      localStorage.removeItem('isAdminDemoAuthenticated');
+      console.log('Demo admin logout successful.');
+      router.push('/admin/login'); // Redirect to login after clearing flag
     } catch (error) {
-      console.error("Logout Error:", error);
-      // Handle logout errors if necessary
+      console.error("Demo Logout Error:", error);
     }
   };
 
   const renderSection = () => {
     switch (currentSection) {
-      case 'overview': return <AdminOverview />;
-      case 'payments': return <AdminPayments />;
-      case 'quotes': return <AdminQuotes />;
-      case 'orders': return <AdminOrders />;
-      case 'users': return <AdminUsers />;
-      case 'appearance': return <AdminAppearance />;
-      default: return <AdminOverview />;
+      case 'overview': return <AdminOverview demoMode={true} />; // Pass demoMode prop
+      case 'payments': return <AdminPayments demoMode={true} />; // Pass demoMode prop
+      case 'quotes': return <AdminQuotes demoMode={true} />; // Pass demoMode prop
+      case 'orders': return <AdminOrders demoMode={true} />; // Pass demoMode prop
+      case 'users': return <AdminUsers demoMode={true} />; // Pass demoMode prop
+      // Pass demoMode prop to AdminAppearance
+      case 'appearance': return <AdminAppearance demoMode={true} />; 
+      default: return <AdminOverview demoMode={true} />; // Pass demoMode prop
     }
   };
 
@@ -105,29 +88,24 @@ export default function AdminSettingsPage() {
           isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <h2 className="text-xl font-semibold mb-6">Admin Settings</h2>
+        <h2 className="text-xl font-semibold mb-6">Admin Settings (Demo)</h2>
         
-        {/* Debug Auth Status */}
+        {/* Updated Auth Status Display for Demo */}
         <div className="mb-4 p-2 bg-muted rounded text-xs">
-          <p>Auth Status: {authStatus.uid ? 'Signed In' : 'Not Signed In'}</p>
-          {authStatus.uid && (
-            <>
-              <p className="truncate">User ID: {authStatus.uid}</p>
-              <p className="truncate">Email: {authStatus.email}</p>
-            </>
-          )}
+          <p>Auth Status: Signed In (Demo)</p>
+          <p>User: admin@demo</p>
         </div>
         
         <nav className="flex flex-col space-y-2 flex-grow">
-          <NavItem section="overview" label="Overview" icon={<LayoutDashboard size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
-          <NavItem section="payments" label="Payments" icon={<CreditCard size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
-          <NavItem section="quotes" label="Quotes" icon={<FileText size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
-          <NavItem section="orders" label="Orders" icon={<ShoppingCart size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
-          <NavItem section="users" label="Users" icon={<Users size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
+          <NavItem section="overview" label="Overview (Demo)" icon={<LayoutDashboard size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
+          <NavItem section="payments" label="Payments (Demo)" icon={<CreditCard size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
+          <NavItem section="quotes" label="Quotes (Demo)" icon={<FileText size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
+          <NavItem section="orders" label="Orders (Demo)" icon={<ShoppingCart size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
+          <NavItem section="users" label="Users (Demo)" icon={<Users size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
           <NavItem section="appearance" label="Appearance" icon={<Palette size={18} />} currentSection={currentSection} setSection={setCurrentSection} onClick={closeMobileSidebar} />
         </nav>
         <div className="mt-auto">
-          <Button onClick={handleLogout} variant="destructive" className="w-full">Logout</Button>
+          <Button onClick={handleLogout} variant="outline" className="w-full">Logout (Demo Admin)</Button>
         </div>
       </aside>
 

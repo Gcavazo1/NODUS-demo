@@ -48,6 +48,13 @@ export function Header() {
                 {item.title}
               </Link>
             ))}
+            {/* --- DEMO MODE: Added Admin Link --- */}
+            <Link
+              href="/admin-settings"
+              className="transition-colors hover:text-foreground/80 text-foreground/60 font-semibold text-orange-600 dark:text-orange-400"
+            >
+              Admin Settings (Demo)
+            </Link>
           </nav>
         </div>
         {/* Mobile Menu Button */}
@@ -131,6 +138,14 @@ export function Header() {
                   {item.title}
                 </Link>
               ))}
+              {/* --- DEMO MODE: Added Admin Link --- */}
+              <Link
+                href="/admin-settings"
+                className="transition-colors hover:text-foreground/80 text-foreground/60 font-semibold text-orange-600 dark:text-orange-400"
+                onClick={toggleMobileMenu}
+              >
+                Admin Settings (Demo)
+              </Link>
             </nav>
             
             <div className="mt-auto pt-6 border-t">

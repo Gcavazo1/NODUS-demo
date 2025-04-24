@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, getDocs } from 'firebase/firestore';
+// Removed Firestore imports
+// import { db } from '@/lib/firebase';
+// import { collection, query, getDocs } from 'firebase/firestore';
 import { AdminUser } from '@/lib/definitions'; // Import the AdminUser type
 import {
   Table,
@@ -14,49 +15,67 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-export default function AdminUsers() {
+// --- DEMO MODE: Fake Data Generation ---
+const generateFakeUsers = (count = 2): AdminUser[] => {
+  const users: AdminUser[] = [
+      {
+          id: 'auth_demo_admin', // Simulate the main admin
+          name: 'Demo Admin',
+          email: 'admin@demo.com',
+          role: 'admin',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+      }
+  ];
+  
+  for (let i = 1; i < count; i++) {
+      users.push({
+          id: `auth_demo_user${i}`,
+          name: `Demo Editor ${i}`,
+          email: `editor${i}@demo.com`,
+          role: 'editor', // Example other role
+          createdAt: new Date(),
+          updatedAt: new Date(),
+      });
+  }
+  return users;
+};
+// --- End DEMO MODE ---
+
+export default function AdminUsers({ demoMode = false }: { demoMode?: boolean }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Removed error state: const [error, setError] = useState<string | null>(null);
 
+  // Load fake data if in demo mode
   useEffect(() => {
-    const fetchUsers = async () => {
+    if (demoMode) {
       setIsLoading(true);
-      setError(null);
-      try {
-        const usersRef = collection(db, 'adminUsers');
-        const q = query(usersRef); // Fetch all admin users
-        const querySnapshot = await getDocs(q);
-        
-        const fetchedUsers: AdminUser[] = [];
-        querySnapshot.forEach((doc) => {
-          // Ensure the data conforms to the AdminUser type, including the id
-          fetchedUsers.push({ id: doc.id, ...doc.data() } as AdminUser);
-        });
-        setUsers(fetchedUsers);
-
-      } catch (err: unknown) {
-        console.error("Error fetching admin users:", err);
-        setError("Failed to fetch admin users. Please try again later.");
-      } finally {
+      // Simulate async loading slightly
+      setTimeout(() => {
+         setUsers(generateFakeUsers());
+         setIsLoading(false);
+      }, 100);
+    } else {
+        // TODO: Implement non-demo mode loading
+        console.warn("AdminUsers: Non-demo mode not implemented.");
         setIsLoading(false);
-      }
-    };
+    }
+  }, [demoMode]);
 
-    fetchUsers();
-  }, []);
+  // Removed original Firestore fetching useEffect
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-4">Admin Users</h1>
+      <h1 className="text-2xl font-semibold mb-4">Admin Users (Demo)</h1>
       <p className="text-muted-foreground mb-6">
-        Manage users who have access to this admin panel.
+        Manage simulated users who have access to this admin panel.
       </p>
       
-      {isLoading && <p>Loading users...</p>}
-      {error && <p className="text-destructive">{error}</p>}
+      {isLoading && <p>Loading demo users...</p>}
+      {/* Removed error display */}
 
-      {!isLoading && !error && (
+      {!isLoading && (
         <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
@@ -72,7 +91,7 @@ export default function AdminUsers() {
               {users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center h-24">
-                    No admin users found.
+                    No demo admin users generated.
                   </TableCell>
                 </TableRow>
               ) : (

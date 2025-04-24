@@ -64,7 +64,7 @@ export default function Home() {
         <div className="flex flex-col gap-2 text-center mb-10">
           <h2 className="text-3xl font-bold tracking-tighter">Our Offerings</h2>
           <p className="text-muted-foreground max-w-3xl mx-auto">
-            Explore our range of digital products and professional services.
+            Display and customize your range of digital products and professional services.
           </p>
         </div>
 

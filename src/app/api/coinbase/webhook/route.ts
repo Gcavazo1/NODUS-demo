@@ -14,12 +14,7 @@ import type { CoinbaseWebhookEvent } from '@/lib/definitions';
 import type { WebhookPayload } from '@/lib/server-firestore';
 
 // Define webhook secret from environment
-const coinbaseWebhookSecret = process.env.COINBASE_COMMERCE_WEBHOOK_SECRET;
-
-// Environment check at module load
-if (!coinbaseWebhookSecret) {
-  console.warn('[Coinbase Webhook] COINBASE_COMMERCE_WEBHOOK_SECRET not set. Webhook verification will fail.');
-}
+// const coinbaseWebhookSecret = process.env.COINBASE_COMMERCE_WEBHOOK_SECRET; // Not needed in demo
 
 // Set of event types we want to process
 const relevantEvents = new Set([
@@ -28,7 +23,12 @@ const relevantEvents = new Set([
   // Add others as needed
 ]);
 
+// Coinbase webhook handler - DISABLED FOR DEMO
 export async function POST(req: Request) {
+  console.log("[DEMO MODE] Coinbase webhook endpoint hit, but processing is disabled.");
+  return NextResponse.json({ received: true, message: "Demo mode: Webhook processing disabled." });
+
+/* --- Original Webhook Logic (Disabled for Demo) --- 
   // console.log('[Coinbase Webhook] ===== RECEIVED COINBASE WEBHOOK REQUEST ====='); // Removed
   
   if (!coinbaseWebhookSecret) {
@@ -144,4 +144,5 @@ export async function POST(req: Request) {
   }
   
   return NextResponse.json({ received: true });
+*/
 } 

@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 // import { db } from '@/lib/firebase'; // Unused
 // import { doc, getDoc, setDoc } from 'firebase/firestore'; // Unused
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardContent, CardFooter
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Palette, Check, Loader2, SunIcon, MoonIcon, ImageIcon, RotateCcw } from 'lucide-react';
+import { Palette, Check, Loader2, SunIcon, MoonIcon, ImageIcon, RotateCcw, Save, Settings2, LinkIcon, Paintbrush, Info, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useSiteSettings } from '@/context/SiteSettingsContext';
+// import { useSiteSettings } from '@/context/SiteSettingsContext';
 import { Slider } from '@/components/ui/slider';
 import { SocialLinksManager } from '@/components/admin/SocialLinksManager';
 import { ThemeColorsSettings } from '@/components/admin/ThemeColorsSettings';
 import { ColorPickerInput } from '@/components/ui/color-picker';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Define theme options
 const themeOptions = [
@@ -27,425 +29,497 @@ const themeOptions = [
   { id: 'custom', name: 'Custom', description: 'Your own custom theme (requires deployment)' },
 ];
 
-export default function AdminAppearance() {
-  const { siteSettings, updateSiteSettings, isLoading: isContextLoading, error: contextError } = useSiteSettings();
-  const [selectedTheme, setSelectedTheme] = useState<string>(siteSettings.theme.selectedTheme);
-  const [lightOpacity, setLightOpacity] = useState<number>(siteSettings.theme.lightOverlayOpacity);
-  const [darkOpacity, setDarkOpacity] = useState<number>(siteSettings.theme.darkOverlayOpacity);
-  const [lightOverlayColor, setLightOverlayColor] = useState<string>(siteSettings.theme.lightOverlayColor || "oklch(0.0 0.0 0.0)");
-  const [darkOverlayColor, setDarkOverlayColor] = useState<string>(siteSettings.theme.darkOverlayColor || "oklch(0.0 0.0 0.0)");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
+// --- DEMO MODE: Define default settings structure and values --- 
+const LOCAL_STORAGE_KEY = 'demoAdminSettings';
 
-  // Update local state when context loads or changes
-  useEffect(() => {
-    if (!isContextLoading) {
-      setSelectedTheme(siteSettings.theme.selectedTheme);
-      setLightOpacity(siteSettings.theme.lightOverlayOpacity);
-      setDarkOpacity(siteSettings.theme.darkOverlayOpacity);
-      setLightOverlayColor(siteSettings.theme.lightOverlayColor || "oklch(0.0 0.0 0.0)");
-      setDarkOverlayColor(siteSettings.theme.darkOverlayColor || "oklch(0.0 0.0 0.0)");
-      setIsLoading(false);
-      // Clear local error if context loaded successfully
-      if (!contextError) {
-         setError(null);
+// Type Definitions
+interface ThemeModeColors {
+  background: string;
+  card: string;
+  primary: string;
+  primaryForeground: string;
+  secondaryForeground: string;
+  mutedForeground: string;
+}
+interface ThemeColorSettingsState {
+  light: ThemeModeColors;
+  dark: ThemeModeColors;
+}
+interface ThemeSettingsState {
+  selectedTheme: string;
+  lightOverlayOpacity: number;
+  darkOverlayOpacity: number;
+  lightOverlayColor: string;
+  darkOverlayColor: string;
+  colors: ThemeColorSettingsState;
+}
+interface SocialLink {
+  id: string;
+  name: string;
+  url: string;
+  category?: 'social' | 'business' | 'other';
+  isActive?: boolean;
+}
+interface DemoSettingsState {
+  theme: ThemeSettingsState;
+  socialLinks: SocialLink[];
+  // Add payments section if needed in the future
+  // payments?: { enableCoinbase: boolean }; 
+}
+
+const defaultSettings: DemoSettingsState = {
+  theme: {
+    selectedTheme: 'centralized',
+    lightOverlayOpacity: 0.25,
+    darkOverlayOpacity: 0.60,
+    lightOverlayColor: "oklch(0.0 0.0 0.0)",
+    darkOverlayColor: "oklch(0.0 0.0 0.0)",
+    colors: {
+      light: {
+        background: "oklch(0.98 0.01 85)",
+        card: "oklch(0.88 0.2286 89.65 / 35.55%)",
+        primary: "oklch(0.65 0.25 280)",
+        primaryForeground: "oklch(1 0 0)",
+        secondaryForeground: "oklch(1 0 0)",
+        mutedForeground: "oklch(0.66 0.3445 15.53)"
+      },
+      dark: {
+        background: "oklch(0.08 0.02 270)",
+        card: "oklch(0.13 0.088 270.71)",
+        primary: "oklch(0.6 0.3 315)",
+        primaryForeground: " oklch(0.85 0.1642 86.47)",
+        secondaryForeground: "oklch(0.1 0.01 270)",
+        mutedForeground: "oklch(0.85 0.1718 181.76)"
       }
-    } else {
-        setIsLoading(true);
     }
-    // Use context error state if it exists
-    if (contextError) {
-        setError(contextError);
-    }
-  }, [isContextLoading, siteSettings.theme, contextError]);
+  },
+  socialLinks: [],
+};
+// --- End DEMO DEFAULTS ---
 
-  // Check for unsaved changes against context state
-  useEffect(() => {
-    if (!isLoading && !isContextLoading) {
-      setHasChanges(
-        selectedTheme !== siteSettings.theme.selectedTheme ||
-        lightOpacity !== siteSettings.theme.lightOverlayOpacity ||
-        darkOpacity !== siteSettings.theme.darkOverlayOpacity ||
-        lightOverlayColor !== siteSettings.theme.lightOverlayColor ||
-        darkOverlayColor !== siteSettings.theme.darkOverlayColor
-      );
-    }
-  }, [selectedTheme, lightOpacity, darkOpacity, lightOverlayColor, darkOverlayColor, siteSettings.theme, isLoading, isContextLoading]);
+export default function AdminAppearance() {
+  // Removed context usage: const { siteSettings, updateSiteSettings, ... } = useSiteSettings();
+  
+  // State for current edits
+  const [allSettings, setAllSettings] = useState<DemoSettingsState>(defaultSettings); 
+  // State for last saved/loaded settings (used for change detection)
+  const [initialSettings, setInitialSettings] = useState<DemoSettingsState>(defaultSettings);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false); // Used for any apply/save/reset operation
+  const [error, setError] = useState<string | null>(null);
 
-  // Prepare theme data for saving/applying
-  const getThemeSettingsToUpdate = () => ({
-    selectedTheme: selectedTheme,
-    lightOverlayOpacity: lightOpacity,
-    darkOverlayOpacity: darkOpacity,
-    lightOverlayColor: lightOverlayColor,
-    darkOverlayColor: darkOverlayColor,
+  // State to track changes in each section
+  const [hasChanges, setHasChanges] = useState({
+      themeSelection: false,
+      overlay: false,
+      colors: false,
+      links: false
   });
 
-  // Save theme settings (only theme part)
-  const saveThemeSettings = async () => {
+  // Load initial settings from Local Storage on mount
+  useEffect(() => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const parsed = safeJsonParse(storedSettings);
+      const loadedSettings = parsed || defaultSettings;
+      
+      setAllSettings(loadedSettings);
+      setInitialSettings(loadedSettings); // Set initial state for comparison
+      console.log("[Demo] Loaded initial settings:", loadedSettings);
+
+      if (!parsed && !storedSettings) { // If LS was empty, save defaults
+           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(defaultSettings));
+      }
+    } catch (err) {
+      console.error("[Demo] Error loading settings:", err);
+      setError('Failed to load settings from browser storage. Using defaults.');
+      setAllSettings(defaultSettings);
+      setInitialSettings(defaultSettings);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // --- Change Detection Effect --- 
+  useEffect(() => {
+    if (isLoading) return; // Don't compare until loaded
+
+    setHasChanges({
+        themeSelection: allSettings.theme.selectedTheme !== initialSettings.theme.selectedTheme,
+        overlay: 
+            allSettings.theme.lightOverlayOpacity !== initialSettings.theme.lightOverlayOpacity ||
+            allSettings.theme.darkOverlayOpacity !== initialSettings.theme.darkOverlayOpacity ||
+            allSettings.theme.lightOverlayColor !== initialSettings.theme.lightOverlayColor ||
+            allSettings.theme.darkOverlayColor !== initialSettings.theme.darkOverlayColor,
+        colors: JSON.stringify(allSettings.theme.colors) !== JSON.stringify(initialSettings.theme.colors),
+        links: JSON.stringify(allSettings.socialLinks) !== JSON.stringify(initialSettings.socialLinks)
+    });
+
+  }, [allSettings, initialSettings, isLoading]);
+
+  // --- Update Handlers (Update `allSettings` state) --- 
+  const updateThemeField = useCallback((field: keyof ThemeSettingsState, value: ThemeSettingsState[keyof ThemeSettingsState]) => {
+      setAllSettings(prev => ({ ...prev, theme: { ...prev.theme, [field]: value } }));
+  }, []);
+
+  const updateThemeColors = useCallback((newColors: ThemeColorSettingsState) => {
+      setAllSettings(prev => ({ ...prev, theme: { ...prev.theme, colors: newColors } }));
+  }, []);
+
+  const updateSocialLinks = useCallback((newLinks: SocialLink[]) => {
+      setAllSettings(prev => ({ ...prev, socialLinks: newLinks }));
+  }, []);
+
+  // --- Generic Apply Function --- 
+  const applySectionChanges = async <K extends keyof DemoSettingsState>(
+    sectionKey: K, 
+    sectionData: DemoSettingsState[K],
+    changeFlagKey: keyof typeof hasChanges
+  ) => {
     setIsSaving(true);
     setError(null);
-    const themeUpdate = getThemeSettingsToUpdate();
+    console.log(`[Demo] Applying ${changeFlagKey} changes...`, sectionData);
     
     try {
-      // Use the updated context function, passing only the theme part
-      await updateSiteSettings({ theme: themeUpdate });
+      // 1. Read current full settings
+      const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const currentFullSettings = safeJsonParse(storedSettings) || defaultSettings;
       
-      toast.success(
-        'Theme settings saved successfully. Please refresh the page to see the new background.',
-        {
-          duration: 5000, // Show for 5 seconds
-          description: 'The background will update after refreshing'
-        }
-      );
-      setHasChanges(false); // Reset flag after successful save
+      // 2. Create updated settings object
+      const updatedFullSettings = { 
+          ...currentFullSettings, 
+          [sectionKey]: sectionData 
+      };
+      
+      // 3. Write back to Local Storage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedFullSettings));
+      
+      // 4. Update initialSettings for the applied section
+      setInitialSettings(prev => ({ ...prev, [sectionKey]: sectionData }));
+
+      toast.success(`${changeFlagKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} applied successfully!`);
+
     } catch (err) {
-      console.error('Error saving theme settings:', err);
-      // Error is likely already set by the context, but set local just in case
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save theme settings. Please try again.';
+      console.error(`[Demo] Error applying ${changeFlagKey} settings:`, err);
+      const errorMessage = err instanceof Error ? err.message : `Failed to apply ${changeFlagKey} settings.`;
       setError(errorMessage);
-      toast.error('Failed to save theme settings');
+      toast.error(errorMessage);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Apply changes immediately (only theme part)
-  const applyChanges = async () => {
+  // --- Save All Function --- 
+  const saveAllSettings = async () => {
     setIsSaving(true);
     setError(null);
-    const themeUpdate = getThemeSettingsToUpdate();
-
+    console.log("[Demo] Saving all changes...", allSettings);
     try {
-      // Use the updated context function, passing only the theme part
-      await updateSiteSettings({ theme: themeUpdate });
-      toast.success('Theme changes applied successfully!');
-      setHasChanges(false); // Reset flag after successful apply
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(allSettings));
+      setInitialSettings(allSettings); // Update initial state to current state
+      toast.success('All appearance settings saved successfully!');
     } catch (err) {
-      console.error('Error applying theme settings:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to apply changes. Please try again.';
+      console.error('[Demo] Error saving all settings:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save settings.';
       setError(errorMessage);
-      toast.error('Failed to apply changes');
+      toast.error('Failed to save settings to browser storage');
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Add reset all function
-  const resetAllThemeSettings = async () => {
-    if (confirm("Are you sure you want to reset all theme settings to defaults? This will reset theme selection, overlay colors, opacity, and all custom colors.")) {
+  // --- Reset All Function --- 
+  const resetAllToDefaults = async () => {
+    if (confirm("Are you sure you want to reset ALL appearance settings (Theme, Overlay, Colors, Links) to defaults?")) {
       setIsSaving(true);
       setError(null);
-      
+      console.log("[Demo] Resetting all settings to defaults...");
       try {
-        // Reset local state
-        setSelectedTheme('centralized');
-        setLightOpacity(0.25);
-        setDarkOpacity(0.72);
-        setLightOverlayColor("oklch(0.0 0.0 0.0)");
-        setDarkOverlayColor("oklch(0.0 0.0 0.0)");
-        
-        // Create default theme settings to save
-        const defaultSettings = {
-          selectedTheme: 'centralized',
-          lightOverlayOpacity: 0.25,
-          darkOverlayOpacity: 0.72,
-          lightOverlayColor: "oklch(0.0 0.0 0.0)",
-          darkOverlayColor: "oklch(0.0 0.0 0.0)",
-          colors: {
-            light: {
-              background: "oklch(1 0 0)",
-              card: "oklch(1 0 0)",
-              primary: "oklch(0.208 0.042 265.755)",
-              primaryForeground: "oklch(0.984 0.003 247.858)",
-              secondaryForeground: "oklch(0.208 0.042 265.755)",
-              mutedForeground: "oklch(0.80 0.15 85.0)"
-            },
-            dark: {
-              background: "oklch(0.0 0.0 0.0)",
-              card: "oklch(20.5% 0 0)",
-              primary: "oklch(0.929 0.013 255.508)",
-              primaryForeground: "oklch(0.208 0.042 265.755)",
-              secondaryForeground: "oklch(0.984 0.003 247.858)",
-              mutedForeground: "oklch(0.80 0.15 85.0)"
-            }
-          }
-        };
-        
-        // Save to database
-        await updateSiteSettings({ theme: defaultSettings });
-        
-        toast.success('All theme settings have been reset to defaults');
-        setHasChanges(false);
+        setAllSettings(defaultSettings); // Reset edit state
+        setInitialSettings(defaultSettings); // Reset base state
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(defaultSettings)); // Save defaults
+        toast.success('All appearance settings have been reset to defaults.');
       } catch (err) {
-        console.error('Error resetting theme settings:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Failed to reset theme settings. Please try again.';
+        console.error('[Demo] Error resetting settings:', err);
+        const errorMessage = err instanceof Error ? err.message : 'Failed to reset settings.';
         setError(errorMessage);
-        toast.error('Failed to reset theme settings');
+        toast.error('Failed to reset settings');
       } finally {
         setIsSaving(false);
       }
     }
   };
 
-  const formatOpacity = (value: number) => {
-    return `${Math.round(value * 100)}%`;
-  };
+  // Memoize derived state for UI
+  const selectedTheme = useMemo(() => allSettings.theme.selectedTheme, [allSettings.theme.selectedTheme]);
+  const lightOpacity = useMemo(() => allSettings.theme.lightOverlayOpacity, [allSettings.theme.lightOverlayOpacity]);
+  const darkOpacity = useMemo(() => allSettings.theme.darkOverlayOpacity, [allSettings.theme.darkOverlayOpacity]);
+  const lightOverlayColor = useMemo(() => allSettings.theme.lightOverlayColor, [allSettings.theme.lightOverlayColor]);
+  const darkOverlayColor = useMemo(() => allSettings.theme.darkOverlayColor, [allSettings.theme.darkOverlayColor]);
+
+  const formatOpacity = (value: number) => `${Math.round(value * 100)}%`;
+  const hasAnyChanges = Object.values(hasChanges).some(change => change);
+
+  if (isLoading) {
+     return (
+        <div className="flex items-center justify-center p-10">
+            <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+            <span>Loading appearance settings...</span>
+        </div>
+     );
+  }
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-semibold">Appearance Settings</h1>
+      <div className="flex justify-between items-center sticky top-0 py-4 bg-background/95 backdrop-blur z-10 border-b mb-6">
+        <h1 className="text-2xl font-semibold">Appearance Settings (Demo)</h1>
         <div className="flex space-x-2">
           <Button 
-            onClick={resetAllThemeSettings} 
-            disabled={isLoading || isSaving}
+            onClick={resetAllToDefaults} 
+            disabled={isSaving}
             variant="outline"
-            className="gap-2"
+            className="gap-1.5"
           >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Resetting...
-              </>
-            ) : (
-              <>
-                <RotateCcw className="h-4 w-4" />
-                Reset All Settings
-              </>
-            )}
+            <RotateCcw className="h-4 w-4" />
+            Reset All
           </Button>
           <Button 
-            onClick={applyChanges} 
-            disabled={isLoading || isSaving || !hasChanges}
-            variant="outline"
+            onClick={saveAllSettings} 
+            disabled={isSaving || !hasAnyChanges}
+            className="gap-1.5"
           >
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Applying...
-              </>
-            ) : (
-              'Apply Changes'
-            )}
-          </Button>
-          <Button 
-            onClick={saveThemeSettings} 
-            disabled={isLoading || isSaving || !hasChanges}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Changes'
-            )}
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save All Changes
           </Button>
         </div>
       </div>
+
+      <Alert variant="default" className="border-blue-500/50 text-blue-700 dark:border-blue-500/30 dark:text-blue-300 [&>svg]:text-blue-500 dark:[&>svg]:text-blue-400">
+          <Info className="h-4 w-4" />
+          <AlertTitle className="text-blue-800 dark:text-blue-200">Demo Mode Info</AlertTitle>
+          <AlertDescription>
+             Changes made here are saved to your browser&apos;s storage. Applying changes might require a page refresh to see them fully reflected across the site (like background images or global colors).
+          </AlertDescription>
+      </Alert>
 
       {error && (
-        <div className="bg-destructive/10 text-destructive p-4 rounded-md">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
-      
-      {/* Theme Options */}
-      <div>
-        <h2 className="text-xl font-medium mb-4">Theme Options</h2>
-        <p className="text-muted-foreground mb-6">
-          Select a theme for your payment hub. Each theme includes light and dark mode variants.
-        </p>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(9)].map((_, i) => (
-              <div key={i} className="h-64 bg-muted animate-pulse rounded-md"></div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {themeOptions.map((theme) => (
-              <ThemeCard
-                key={theme.id}
-                theme={theme}
-                isSelected={selectedTheme === theme.id}
-                onSelect={() => setSelectedTheme(theme.id)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-      
-      {/* Opacity Controls */}
-      <div>
-        <h2 className="text-xl font-medium mb-4">Background Overlay</h2>
-        <p className="text-muted-foreground mb-6">
-          Adjust the overlay colors and opacity for light and dark modes.
-        </p>
-        
-        <div className="space-y-6">
-          {/* Light Mode Overlay Controls */}
-          <div className="space-y-4 p-4 border rounded-md">
-            <div className="flex items-center">
-              <SunIcon className="h-5 w-5 mr-2 text-yellow-500" />
-              <h3 className="font-medium">Light Mode Overlay</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <ColorPickerInput
-                  label="Overlay Color"
-                  value={lightOverlayColor}
-                  onChange={setLightOverlayColor}
+      <Card>
+        <CardHeader>
+          <CardTitle>Theme Selection</CardTitle>
+          <CardDescription>Choose a base theme. Custom requires deployment changes.</CardDescription>
+        </CardHeader>
+        <CardContent>
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {themeOptions.map((theme) => (
+                <ThemeCard
+                  key={theme.id}
+                  theme={theme}
+                  isSelected={selectedTheme === theme.id}
+                  onSelect={() => updateThemeField('selectedTheme', theme.id)}
                 />
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Opacity</span>
-                  <span className="text-sm font-medium">{formatOpacity(lightOpacity)}</span>
-                </div>
-                <Slider
-                  value={[lightOpacity]}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  onValueChange={(values) => setLightOpacity(values[0])}
-                  disabled={isLoading}
-                  className="py-2"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Transparent</span>
-                  <span>Full Overlay</span>
-                </div>
-              </div>
+              ))}
             </div>
-          </div>
-          
-          {/* Dark Mode Overlay Controls */}
-          <div className="space-y-4 p-4 border rounded-md">
-            <div className="flex items-center">
-              <MoonIcon className="h-5 w-5 mr-2 text-indigo-400" />
-              <h3 className="font-medium">Dark Mode Overlay</h3>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <ColorPickerInput
-                  label="Overlay Color"
-                  value={darkOverlayColor}
-                  onChange={setDarkOverlayColor}
-                />
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Opacity</span>
-                  <span className="text-sm font-medium">{formatOpacity(darkOpacity)}</span>
-                </div>
-                <Slider
-                  value={[darkOpacity]}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  onValueChange={(values) => setDarkOpacity(values[0])}
-                  disabled={isLoading}
-                  className="py-2"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Transparent</span>
-                  <span>Full Overlay</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+        <CardFooter className="justify-end">
+            <Button
+                variant="secondary"
+                size="sm"
+                disabled={!hasChanges.themeSelection || isSaving}
+                onClick={() => applySectionChanges('theme', { ...initialSettings.theme, selectedTheme: allSettings.theme.selectedTheme }, 'themeSelection')}
+                className="gap-1.5"
+            >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paintbrush className="h-4 w-4" />}
+                Apply Theme
+            </Button>
+        </CardFooter>
+      </Card>
 
-      {/* Background Overlay Preview */}
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-medium">Background Overlay Preview</h2>
-          <Button 
-            onClick={saveThemeSettings} 
-            disabled={isLoading || isSaving || !hasChanges}
-            size="sm"
-            className="gap-2"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                Save Overlay Changes
-              </>
-            )}
-          </Button>
-        </div>
-        <div className="bg-muted p-4 rounded-lg">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Light mode preview */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">Light Mode</h3>
-              <div className="aspect-video bg-card rounded-md border overflow-hidden shadow-sm relative">
-                <div 
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{
-                    backgroundImage: selectedTheme === 'custom' ? 'url(/images/custom-light-background.jpg)' : `url(/images/${selectedTheme}-light-background.jpg)`,
-                  }}
-                />
-                <div 
-                  className="absolute inset-0" 
-                  style={{ 
-                    backgroundColor: lightOverlayColor,
-                    opacity: lightOpacity 
-                  }} 
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-foreground font-medium">Light Mode Preview</p>
+      <Card>
+         <CardHeader>
+           <CardTitle>Background Overlay</CardTitle>
+           <CardDescription>Adjust the color and opacity of the overlay applied over the background image.</CardDescription>
+         </CardHeader>
+         <CardContent>
+             <div className="grid md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                    <h3 className="text-lg font-medium flex items-center"><SunIcon className="mr-2 h-5 w-5"/> Light Mode Overlay</h3>
+                    <div className="space-y-2">
+                        <Label>Overlay Opacity: {formatOpacity(lightOpacity)}</Label>
+                        <Slider 
+                            value={[lightOpacity]} 
+                            onValueChange={(value) => updateThemeField('lightOverlayOpacity', value[0])}
+                            max={1} 
+                            step={0.01} 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                         <Label>Overlay Color</Label>
+                         <ColorPickerInput 
+                            label="Light Overlay Color"
+                            value={lightOverlayColor}
+                            onChange={(color) => updateThemeField('lightOverlayColor', color)}
+                         />
+                    </div>
                 </div>
-              </div>
-            </div>
-            
-            {/* Dark mode preview */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">Dark Mode</h3>
-              <div className="aspect-video bg-card rounded-md border overflow-hidden shadow-sm relative dark">
-                <div 
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{
-                    backgroundImage: selectedTheme === 'custom' ? 'url(/images/custom-dark-background.jpg)' : `url(/images/${selectedTheme}-dark-background.jpg)`,
-                  }}
-                />
-                <div 
-                  className="absolute inset-0" 
-                  style={{ 
-                    backgroundColor: darkOverlayColor,
-                    opacity: darkOpacity 
-                  }} 
-                />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-foreground dark:text-foreground font-medium">Dark Mode Preview</p>
+                <div className="space-y-4">
+                    <h3 className="text-lg font-medium flex items-center"><MoonIcon className="mr-2 h-5 w-5"/> Dark Mode Overlay</h3>
+                     <div className="space-y-2">
+                        <Label>Overlay Opacity: {formatOpacity(darkOpacity)}</Label>
+                         <Slider 
+                            value={[darkOpacity]} 
+                            onValueChange={(value) => updateThemeField('darkOverlayOpacity', value[0])}
+                            max={1} 
+                            step={0.01} 
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Overlay Color</Label>
+                         <ColorPickerInput 
+                            label="Dark Overlay Color"
+                            value={darkOverlayColor}
+                            onChange={(color) => updateThemeField('darkOverlayColor', color)}
+                         />
+                    </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+             </div>
+         </CardContent>
+         <CardFooter className="justify-end">
+             <Button
+                variant="secondary"
+                size="sm"
+                disabled={!hasChanges.overlay || isSaving}
+                onClick={() => applySectionChanges('theme', { 
+                    ...initialSettings.theme,
+                    lightOverlayOpacity: allSettings.theme.lightOverlayOpacity,
+                    darkOverlayOpacity: allSettings.theme.darkOverlayOpacity,
+                    lightOverlayColor: allSettings.theme.lightOverlayColor,
+                    darkOverlayColor: allSettings.theme.darkOverlayColor,
+                 }, 'overlay')}
+                 className="gap-1.5"
+             >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Settings2 className="h-4 w-4" />}
+                 Apply Overlay
+             </Button>
+         </CardFooter>
+      </Card>
 
-      {/* Theme Colors Settings */}
-      <ThemeColorsSettings />
-      
-      {/* Social Links Manager */}
-      <div className="mt-10">
-        <SocialLinksManager />
-      </div>
+      <div>
+         <h2 className="text-xl font-medium mb-4">Background Overlay Preview</h2>
+         <div className="bg-muted p-4 rounded-lg">
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div>
+               <h3 className="text-sm font-medium mb-2">Light Mode</h3>
+               <div className="aspect-video bg-card rounded-md border overflow-hidden shadow-sm relative">
+                 <div 
+                   className="absolute inset-0 bg-cover bg-center"
+                   style={{
+                     backgroundImage: selectedTheme === 'custom' 
+                        ? 'url(/images/custom-light-background.jpg)' 
+                        : `url(/images/${selectedTheme}-light-background.jpg)`,
+                   }}
+                 />
+                 <div 
+                   className="absolute inset-0" 
+                   style={{ 
+                     backgroundColor: lightOverlayColor,
+                     opacity: lightOpacity 
+                   }} 
+                 />
+                 <div className="absolute inset-0 flex items-center justify-center">
+                   <p className="text-foreground font-medium bg-background/50 px-2 py-1 rounded">Preview</p> 
+                 </div>
+               </div>
+             </div>
+             
+             <div>
+               <h3 className="text-sm font-medium mb-2">Dark Mode</h3>
+               <div className="aspect-video bg-card rounded-md border overflow-hidden shadow-sm relative dark">
+                 <div 
+                   className="absolute inset-0 bg-cover bg-center"
+                   style={{
+                     backgroundImage: selectedTheme === 'custom' 
+                        ? 'url(/images/custom-dark-background.jpg)' 
+                        : `url(/images/${selectedTheme}-dark-background.jpg)`,
+                   }}
+                 />
+                 <div 
+                   className="absolute inset-0" 
+                   style={{ 
+                     backgroundColor: darkOverlayColor,
+                     opacity: darkOpacity 
+                   }} 
+                 />
+                 <div className="absolute inset-0 flex items-center justify-center">
+                   <p className="text-foreground font-medium bg-background/50 px-2 py-1 rounded">Preview</p> 
+                 </div>
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
+
+      <Card>
+        <CardHeader>
+             <CardTitle>Theme Colors</CardTitle>
+             <CardDescription>Customize the colors for light and dark themes.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <ThemeColorsSettings 
+                initialColors={allSettings.theme.colors}
+                onColorsChange={updateThemeColors}
+                disabled={isSaving}
+            />
+        </CardContent>
+         <CardFooter className="justify-end">
+             <Button
+                variant="secondary"
+                size="sm"
+                disabled={!hasChanges.colors || isSaving}
+                onClick={() => applySectionChanges('theme', { ...initialSettings.theme, colors: allSettings.theme.colors }, 'colors')}
+                 className="gap-1.5"
+             >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Palette className="h-4 w-4" />}
+                 Apply Colors
+             </Button>
+         </CardFooter>
+      </Card>
+
+      <Card>
+          <CardHeader>
+             <CardTitle>Social Links</CardTitle>
+             <CardDescription>Manage social media and other links displayed in the site footer or menu.</CardDescription>
+         </CardHeader>
+         <CardContent>
+             <SocialLinksManager 
+                initialLinks={allSettings.socialLinks}
+                onLinksChange={updateSocialLinks}
+                disabled={isSaving}
+            />
+         </CardContent>
+          <CardFooter className="justify-end">
+             <Button
+                variant="secondary"
+                size="sm"
+                disabled={!hasChanges.links || isSaving}
+                onClick={() => applySectionChanges('socialLinks', allSettings.socialLinks, 'links')}
+                 className="gap-1.5"
+             >
+                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <LinkIcon className="h-4 w-4" />}
+                 Apply Links
+             </Button>
+         </CardFooter>
+      </Card>
+
     </div>
   );
 }
@@ -502,4 +576,24 @@ const ThemeCard = ({ theme, isSelected, onSelect }: ThemeCardProps) => {
       </CardHeader>
     </Card>
   );
+};
+
+// Helper to safely parse JSON
+const safeJsonParse = (str: string | null): DemoSettingsState | null => {
+    if (!str) return null;
+    try {
+        const parsed = JSON.parse(str);
+        // Add more robust validation if needed
+        if (parsed && parsed.theme && parsed.theme.colors && Array.isArray(parsed.socialLinks)) {
+            // Merge with defaults to ensure all keys exist
+            return {
+                theme: { ...defaultSettings.theme, ...parsed.theme, colors: { ...defaultSettings.theme.colors, ...parsed.theme.colors } },
+                socialLinks: parsed.socialLinks,
+            };
+        }
+        return null;
+    } catch (e) {
+        console.error("[Demo] Error parsing settings from Local Storage:", e);
+        return null;
+    }
 }; 

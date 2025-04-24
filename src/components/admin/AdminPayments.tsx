@@ -2,14 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { usePaymentConfig } from '@/context/PaymentConfigContext';
-import { useSiteSettings } from '@/context/SiteSettingsContext';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, CreditCard, Bitcoin, RefreshCw, XCircle, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import {
   Table,
   TableBody,
@@ -24,7 +21,20 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from 'sonner';
 
-// Interface for payment data from Firestore
+// --- DEMO MODE: Local Storage Key and Defaults ---
+// Use the same key as AdminAppearance to store all settings
+const LOCAL_STORAGE_KEY = 'demoAdminSettings'; 
+
+// Define structure for consistency, though we only modify enableCoinbase here
+const defaultSettings = {
+    theme: { /* ... from AdminAppearance ... */ },
+    socialLinks: [ /* ... from AdminAppearance ... */ ],
+    payments: {
+        enableCoinbase: false, // Default value
+    }
+};
+
+// Interface for payment data
 interface Payment {
   id: string;
   customerId: string;
@@ -34,125 +44,162 @@ interface Payment {
   status: 'pending' | 'succeeded' | 'failed' | 'refunded';
   provider: string;
   providerPaymentId: string;
-  createdAt: Timestamp | Date | string; // Use specific types instead of any
+  createdAt: Date; // Use Date for simplicity in demo
 }
 
-export default function AdminPayments() {
+// --- DEMO MODE: Fake Data Generation ---
+const generateFakePayments = (count = 10): Payment[] => {
+  const payments: Payment[] = [];
+  const statuses: Payment['status'][] = ['succeeded', 'succeeded', 'succeeded', 'failed', 'pending', 'refunded'];
+  const providers = ['stripe', 'coinbase'];
+  const now = new Date();
+
+  for (let i = 0; i < count; i++) {
+    const provider = providers[Math.floor(Math.random() * providers.length)];
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    payments.push({
+      id: `demo_pay_${Math.random().toString(36).substring(2, 10)}`,
+      customerId: `cust_demo_${Math.random().toString(36).substring(2, 8)}`,
+      amount: Math.floor(Math.random() * 20000) + 1000, // 10 - 210 USD
+      status: status,
+      provider: provider,
+      providerPaymentId: `${provider === 'stripe' ? 'pi' : 'ch'}_demo_${Math.random().toString(36).substring(2, 12)}`,
+      createdAt: new Date(now.getTime() - i * Math.random() * 3 * 24 * 60 * 60 * 1000), // Within last ~30 days
+      orderId: status === 'succeeded' ? `ord_demo_${Math.random().toString(36).substring(2, 8)}` : undefined,
+    });
+  }
+  return payments.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+};
+// --- End DEMO MODE ---
+
+export default function AdminPayments({ demoMode = false }: { demoMode?: boolean }) {
   const { isStripeConfigured, isCoinbaseConfigured } = usePaymentConfig();
-  const { siteSettings, updateSiteSettings, isLoading: isContextLoading, error: contextError } = useSiteSettings();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [enableCoinbase, setEnableCoinbase] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Renamed fetchPayments function to avoid conflict and moved inside component scope
-  const loadPayments = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const paymentsRef = collection(db, 'payments');
-      const q = query(paymentsRef, orderBy('createdAt', 'desc'), limit(20));
-      const querySnapshot = await getDocs(q);
-      
-      const fetchedPayments: Payment[] = [];
-      querySnapshot.forEach((doc) => {
-        fetchedPayments.push({ id: doc.id, ...doc.data() } as Payment);
-      });
-      setPayments(fetchedPayments);
-    } catch (err: unknown) { // Use unknown instead of any
-      console.error("Error fetching payments:", err);
-      const message = err instanceof Error ? err.message : "Unknown error fetching payment data.";
-      setError(`Failed to fetch payment data: ${message}`);
-    } finally {
-      // Only set loading false if context is also loaded
-      if (!isContextLoading) {
+  // Load initial state (fake payments and enableCoinbase setting from LS)
+  useEffect(() => {
+    if (demoMode) {
+      setIsLoading(true);
+      // Load fake payments
+      setPayments(generateFakePayments());
+
+      // Load enableCoinbase setting from local storage
+      try {
+        const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedSettings) {
+          const parsedSettings = JSON.parse(storedSettings);
+          // Check if payments settings exist, otherwise use default
+          if (parsedSettings.payments && typeof parsedSettings.payments.enableCoinbase === 'boolean') {
+             setEnableCoinbase(parsedSettings.payments.enableCoinbase);
+          } else {
+              console.warn("[Demo Payments] No payments settings in Local Storage, using default.");
+              setEnableCoinbase(defaultSettings.payments.enableCoinbase);
+          }
+        } else {
+          console.warn("[Demo Payments] No settings in Local Storage, using default.");
+          setEnableCoinbase(defaultSettings.payments.enableCoinbase);
+        }
+      } catch (err) {
+         console.error("[Demo Payments] Error loading settings from Local Storage:", err);
+         setEnableCoinbase(defaultSettings.payments.enableCoinbase);
+      } finally {
          setIsLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    loadPayments(); // Call the renamed function
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Keep dependency array empty to run once on mount
-
-  // Sync local state with context
-  useEffect(() => {
-    if (!isContextLoading) {
-      setEnableCoinbase(siteSettings.payments.enableCoinbase);
-      // If payments are still loading, don't set component loading to false yet
-      if (!isLoading && payments.length === 0 && !error) {
-          // Let loadPayments finish
-      } else {
-          setIsLoading(false); 
-      }
-      if (!contextError) {
-        // Don't clear payment fetch errors if context loads okay
-        // setError(null);
-      } else {
-         setError(contextError); // Show context error locally if it exists
+         setHasChanges(false); // Reset changes flag after loading
       }
     } else {
-      setIsLoading(true);
+        // TODO: Implement non-demo mode loading if needed
+        console.warn("AdminPayments: Non-demo mode not fully implemented for loading.");
+        setIsLoading(false);
     }
-  }, [isContextLoading, siteSettings.payments, contextError, isLoading, payments.length, error]); // Added dependencies
+  }, [demoMode]);
 
-  // Check for changes
+  // Check for changes against the loaded state
   useEffect(() => {
-     if (!isLoading && !isContextLoading) {
-        setHasChanges(
-            enableCoinbase !== siteSettings.payments.enableCoinbase
-        );
-     }
-  }, [enableCoinbase, siteSettings.payments, isLoading, isContextLoading]);
+    if (!isLoading && demoMode) {
+      // Need to reload from LS to compare accurately in case another tab changed it
+      let currentStoredValue = defaultSettings.payments.enableCoinbase;
+      try {
+          const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
+          if (storedSettings) {
+              const parsedSettings = JSON.parse(storedSettings);
+              if (parsedSettings.payments && typeof parsedSettings.payments.enableCoinbase === 'boolean') {
+                  currentStoredValue = parsedSettings.payments.enableCoinbase;
+              }
+          }
+      } catch {} // Ignore errors reading LS for comparison
+
+      setHasChanges(enableCoinbase !== currentStoredValue);
+    }
+  }, [enableCoinbase, isLoading, demoMode]);
 
   const handleToggleCoinbase = (checked: boolean) => {
       setEnableCoinbase(checked);
+      // Don't set hasChanges immediately, wait for useEffect comparison
   };
 
+  // --- DEMO MODE: Save settings to Local Storage ---
   const savePaymentSettings = async () => {
     setIsSaving(true);
-    setError(null);
-    const paymentUpdate = { enableCoinbase };
 
     try {
-      await updateSiteSettings({ payments: paymentUpdate });
-      toast.success('Payment settings saved successfully.');
-      setHasChanges(false);
-    } catch (err: unknown) { // Use unknown
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save payment settings.';
-      setError(errorMessage);
-      toast.error('Failed to save payment settings.');
+      // 1. Read current full settings from Local Storage
+      let currentSettings = { ...defaultSettings }; // Start with defaults
+      try {
+        const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedSettings) {
+          const parsed = JSON.parse(storedSettings);
+          // Basic validation
+          if (parsed.theme && parsed.socialLinks && parsed.payments) {
+             currentSettings = parsed;
+          } else {
+              console.warn("[Demo Payments Save] Invalid data in LS, merging with defaults.");
+              // Merge carefully if needed, or just overwrite payments part
+          }
+        }
+      } catch (err) {
+          console.error("[Demo Payments Save] Error reading LS, will overwrite payment settings:", err);
+      }
+
+      // 2. Update the payments part
+      const updatedSettings = {
+        ...currentSettings,
+        payments: {
+          ...currentSettings.payments, // Keep other potential payment settings
+          enableCoinbase: enableCoinbase,
+        },
+      };
+
+      // 3. Write updated settings back to Local Storage
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedSettings));
+      
+      toast.success('Payment settings saved to browser storage.');
+      setHasChanges(false); // Reset changes flag
+
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save settings.';
+      console.error("[Demo Payments Save] Error:", errorMessage);
+      toast.error('Failed to save payment settings to browser storage.');
     } finally {
       setIsSaving(false);
     }
   };
+  // --- End DEMO MODE Save ---
 
-  // Format Firestore timestamp
-  const formatDate = (timestamp: Timestamp | Date | string): string => { // Use specific types
-    if (!timestamp) return 'N/A';
-    
-    let date: Date;
-    if (timestamp instanceof Timestamp) {
-      date = timestamp.toDate();
-    } else if (timestamp instanceof Date) {
-      date = timestamp;
-    } else if (typeof timestamp === 'string') {
-      date = new Date(timestamp);
-    } else {
-      return 'Invalid Date Type'; // More specific error
+  // Format Date (Simplified)
+  const formatDate = (date: Date | null | undefined): string => {
+    if (!date) return 'N/A';
+    try {
+      return format(date, 'PPp'); // Mar 15, 2023, 3:25 PM
+    } catch {
+       return 'Invalid Date';
     }
-    
-    if (isNaN(date.getTime())) {
-      return 'Invalid Date Value'; // More specific error
-    }
-    
-    return format(date, 'PPp'); // Mar 15, 2023, 3:25 PM
   };
 
-  // Format currency (assuming price is in cents)
+  // Format currency (remains the same)
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -161,7 +208,7 @@ export default function AdminPayments() {
     }).format(amount / 100); // Convert cents to dollars
   };
 
-  // Get status badge variant based on payment status
+  // Get status badge variant (remains the same)
   const getStatusBadgeVariant = (status: Payment['status']) => {
     switch (status) {
       case 'succeeded': return 'success';
@@ -172,7 +219,7 @@ export default function AdminPayments() {
     }
   };
 
-  // Get payment method icon
+  // Get payment method icon (remains the same)
   const getPaymentIcon = (provider: string) => {
     switch (provider.toLowerCase()) {
       case 'stripe': return <CreditCard className="h-4 w-4" />;
@@ -181,42 +228,16 @@ export default function AdminPayments() {
     }
   };
 
-  // If context or payments are still loading, show combined skeleton/placeholder
-  if (isLoading || isContextLoading) {
-      return (
-          <div className="space-y-8">
-             {/* Payment Gateway Skeleton */}
-             <Card>
-                  <CardHeader>
-                      <div className="h-6 w-1/2 bg-muted animate-pulse rounded"></div>
-                      <div className="h-4 w-3/4 bg-muted animate-pulse rounded mt-2"></div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                      <div className="h-8 w-full bg-muted animate-pulse rounded"></div>
-                      <div className="h-20 w-full bg-muted animate-pulse rounded"></div>
-                  </CardContent>
-                  <CardFooter>
-                      <div className="h-10 w-24 bg-muted animate-pulse rounded"></div>
-                  </CardFooter>
-            </Card>
-            {/* Recent Payments Skeleton */}
-            <div className="mt-8">
-                 <div className="h-6 w-1/3 bg-muted animate-pulse rounded mb-6"></div>
-                 <div className="space-y-3 border rounded-lg p-4">
-                    {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-12 bg-muted animate-pulse rounded-md"></div>
-                    ))}
-                </div>
-             </div>
-          </div>
-      );
+  // Removed combined loading skeleton logic
+  if (isLoading && demoMode) {
+       return <p>Loading demo payments...</p>; // Simple loader
   }
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold mb-6">Payment Settings</h1>
+      <h1 className="text-2xl font-semibold mb-6">Payment Settings (Demo)</h1>
       
-      {/* Payment Gateway Status Cards */}
+      {/* Payment Gateway Status Cards (using usePaymentConfig context) */}
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -284,19 +305,11 @@ export default function AdminPayments() {
         <CardHeader>
           <CardTitle>Payment Gateway Configuration</CardTitle>
           <CardDescription>
-            Enable or disable specific payment providers for checkout.
+            Enable or disable specific payment providers for checkout (Demo Mode - Saves to Browser).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-           {/* Display Error */}
-            {(error || contextError) && !isSaving && (
-               <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  {/* Prioritize local component error over context error if both exist */}
-                  <AlertDescription>{error || contextError}</AlertDescription>
-              </Alert>
-            )}
+           {/* Removed Error Alert */}
 
           {/* Coinbase Commerce Section */}
           <div className="space-y-4 rounded-md border p-4">
@@ -312,7 +325,7 @@ export default function AdminPayments() {
                       id="enable-coinbase"
                       checked={enableCoinbase}
                       onCheckedChange={handleToggleCoinbase}
-                      disabled={isSaving || isContextLoading} // Also disable if context is loading
+                      disabled={isSaving || isLoading} // Also disable if context is loading
                       aria-labelledby="enable-coinbase-label"
                   />
               </div>
@@ -331,12 +344,11 @@ export default function AdminPayments() {
                   </Alert>
               )}
           </div>
-          {/* Stripe Section Placeholder */}
         </CardContent>
         <CardFooter>
           <Button
             onClick={savePaymentSettings}
-            disabled={isContextLoading || isSaving || !hasChanges} 
+            disabled={isLoading || isSaving || !hasChanges} 
           >
             {isSaving ? (
               <>
@@ -353,31 +365,12 @@ export default function AdminPayments() {
       {/* Recent Payment Transactions Table */}
       <div className="mt-8">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Recent Payment Transactions</h2>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={loadPayments} // Use the renamed function
-            disabled={isLoading} // Disable refresh if already loading
-          >
-            {isLoading && !isContextLoading ? (
-               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-               <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            Refresh
-          </Button>
+          <h2 className="text-xl font-semibold">Recent Payment Transactions (Demo)</h2>
+          {/* Removed Refresh Button as data is static for demo */}
         </div>
 
-        {/* Error specifically for payments table */}
-        {error && !contextError && (
-          <div className="bg-destructive/10 text-destructive p-4 rounded-md flex items-center mb-4">
-            <XCircle className="h-5 w-5 mr-2" />
-            {error} 
-          </div>
-        )}
+        {/* Removed payment-specific error display */}
 
-        {/* Table loading state handled by the main loading check above */}
          <div className="border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
@@ -394,7 +387,7 @@ export default function AdminPayments() {
                 {payments.length === 0 && !isLoading ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center h-24">
-                      No payment transactions found.
+                      No demo payment transactions generated.
                     </TableCell>
                   </TableRow>
                 ) : (

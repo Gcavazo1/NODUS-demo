@@ -11,8 +11,12 @@ import {
 } from '@/lib/server-firestore';
 import { WebhookPayload } from '@/lib/server-firestore';
 
-// Stripe webhook handler
+// Stripe webhook handler - DISABLED FOR DEMO
 export async function POST(request: NextRequest) {
+    console.log("[DEMO MODE] Stripe webhook endpoint hit, but processing is disabled.");
+    return NextResponse.json({ received: true, message: "Demo mode: Webhook processing disabled." });
+
+/* --- Original Webhook Logic (Disabled for Demo) ---
   try {
     // Get the Stripe signature from headers
     const headers = await request.headers;
@@ -104,4 +108,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+*/
 } 

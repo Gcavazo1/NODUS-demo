@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns';
 import { useSiteSettings } from '@/context/SiteSettingsContext';
 import { useTheme } from 'next-themes';
 import { DateRange } from "react-day-picker";
@@ -35,120 +33,105 @@ interface ChartData {
   formattedRevenue: string;
 }
 
-export default function RevenueChart() {
+interface RevenueChartProps {
+  demoMode?: boolean;
+}
+
+// --- DEMO MODE: Default Theme Colors (Fallback) ---
+const defaultDemoColors = {
+  light: {
+    primary: '#3b82f6', // blue-500
+    background: '#ffffff',
+    mutedForeground: '#6b7280' // gray-500
+  },
+  dark: {
+    primary: '#60a5fa', // blue-400
+    background: '#1f2937', // gray-800
+    mutedForeground: '#9ca3af' // gray-400
+  }
+};
+
+// --- DEMO MODE: Fake Data Generation ---
+const generateFakeRevenueData = (startDate: Date, endDate: Date): { chartData: ChartData[], totalRevenue: number } => {
+  const data: ChartData[] = [];
+  let total = 0;
+  const days = eachDayOfInterval({ start: startDate, end: endDate });
+
+  days.forEach(day => {
+    // Simulate some weekday/weekend variation and randomness
+    const dayOfWeek = day.getDay(); // 0=Sun, 6=Sat
+    const baseRevenue = Math.random() * 30000 + 10000; // 100 - 400 USD base
+    let multiplier = 1;
+    if (dayOfWeek === 0 || dayOfWeek === 6) multiplier = 0.7; // Lower on weekends
+    if (Math.random() < 0.1) multiplier *= 1.5; // Random spike
+
+    const revenue = Math.max(0, Math.floor(baseRevenue * multiplier));
+    total += revenue;
+    data.push({
+      date: format(day, 'yyyy-MM-dd'),
+      revenue,
+      formattedRevenue: formatCurrencyStatic(revenue) // Use static formatter here
+    });
+  });
+
+  console.log(`[Demo] Generated fake revenue: ${data.length} days, total ${formatCurrencyStatic(total)}`);
+  return { chartData: data, totalRevenue: total };
+};
+
+// Static formatter function (not relying on class instance)
+const formatCurrencyStatic = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount / 100);
+};
+// --- End DEMO MODE ---
+
+export default function RevenueChart({ demoMode = false }: RevenueChartProps) {
   const [data, setData] = useState<ChartData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [totalRevenue, setTotalRevenue] = useState(0);
-  const { siteSettings } = useSiteSettings();
+  const { siteSettings, isLoading: isSettingsLoading } = useSiteSettings();
   const { resolvedTheme } = useTheme();
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   
-  // State for date range selection
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const end = new Date();
-    const start = subDays(end, 29); // Default to last 30 days (incl. today)
+    const start = subDays(end, 29);
     return { from: start, to: end };
   });
 
-  // Get theme colors for the chart
+  // Get theme colors, using robust fallback for demo
   const themeMode = resolvedTheme === 'dark' ? 'dark' : 'light';
-  const colors = useMemo(() => siteSettings?.theme?.colors?.[themeMode] || {
-    primary: '#3182CE',
-    background: '#FFFFFF',
-    mutedForeground: '#718096'
+  const colors = useMemo(() => {
+      const themeColors = siteSettings?.theme?.colors?.[themeMode];
+      return {
+          primary: themeColors?.primary || defaultDemoColors[themeMode].primary,
+          background: themeColors?.background || defaultDemoColors[themeMode].background,
+          mutedForeground: themeColors?.mutedForeground || defaultDemoColors[themeMode].mutedForeground,
+      };
   }, [siteSettings?.theme?.colors, themeMode]);
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount / 100); // Assuming amount is in cents
-  };
-  
-  // Fetch data based on selected date range
+  // --- DEMO MODE: Generate data based on date range --- 
   useEffect(() => {
-    if (!dateRange?.from || !dateRange?.to) {
-      // Don't fetch if the date range isn't fully defined
-      return;
-    }
-    
-    const fetchRevenueData = async (startDate: Date, endDate: Date) => {
+    if (demoMode && dateRange?.from && dateRange?.to) {
       setIsLoading(true);
-      setError(null);
-      
-      try {
-        // Use start of the start day and end of the end day for the query
-        const queryStartDate = startOfDay(startDate);
-        const queryEndDate = endOfDay(endDate);
-        
-        const paymentsRef = collection(db, 'payments');
-        const successfulPaymentsQuery = query(
-          paymentsRef,
-          where('status', '==', 'succeeded'),
-          where('createdAt', '>=', queryStartDate),
-          where('createdAt', '<=', queryEndDate),
-          orderBy('createdAt', 'asc')
-        );
-        
-        const paymentsSnapshot = await getDocs(successfulPaymentsQuery);
-        
-        // Process payments and aggregate by date
-        const dateMap: Record<string, number> = {};
-        let runningTotal = 0;
-        
-        paymentsSnapshot.forEach((doc) => {
-          const payment = doc.data();
-          let paymentDate: Date;
-          
-          if (payment.createdAt instanceof Timestamp) {
-            paymentDate = payment.createdAt.toDate();
-          } else if (payment.createdAt instanceof Date) {
-            paymentDate = payment.createdAt;
-          } else if (typeof payment.createdAt === 'string') {
-            paymentDate = new Date(payment.createdAt);
-          } else {
-            return;
-          }
-          
-          const dateStr = format(paymentDate, 'yyyy-MM-dd');
-          if (dateMap[dateStr] === undefined) {
-            dateMap[dateStr] = 0;
-          }
-          dateMap[dateStr] += payment.amount || 0;
-          runningTotal += payment.amount || 0;
-        });
-        
-        // Convert to array format for Recharts, ensuring all days in the range are present
-        const chartData: ChartData[] = [];
-        let currentDate = queryStartDate;
-        while (currentDate <= queryEndDate) {
-          const dateStr = format(currentDate, 'yyyy-MM-dd');
-          const revenue = dateMap[dateStr] || 0;
-          chartData.push({
-            date: dateStr,
-            revenue,
-            formattedRevenue: formatCurrency(revenue)
-          });
-          currentDate = new Date(currentDate.setDate(currentDate.getDate() + 1));
-        }
-
+      // Simulate async loading slightly
+      setTimeout(() => {
+        const { chartData, totalRevenue: calculatedTotal } = generateFakeRevenueData(dateRange.from!, dateRange.to!);
         setData(chartData);
-        setTotalRevenue(runningTotal);
-        
-      } catch (err) {
-        console.error('Error fetching revenue data:', err);
-        setError('Failed to load revenue data. Please try again later.');
-      } finally {
+        setTotalRevenue(calculatedTotal);
         setIsLoading(false);
-      }
-    };
-    
-    fetchRevenueData(dateRange.from, dateRange.to);
-  }, [dateRange]); // Refetch when dateRange changes
+      }, 300); // Short delay
+    }
+  }, [demoMode, dateRange]);
+
+  // Format currency (Instance method - used less now)
+  const formatCurrency = (amount: number) => {
+      return formatCurrencyStatic(amount);
+  };
   
   // Custom tooltip component
   interface TooltipProps {
@@ -241,12 +224,11 @@ export default function RevenueChart() {
     <Card>
       <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-2 gap-4">
         <div>
-          <CardTitle className="text-xl font-semibold">Revenue Trend</CardTitle>
-          <CardDescription>Revenue for {formattedDateRange}</CardDescription>
+          <CardTitle className="text-xl font-semibold">Revenue Trend (Demo)</CardTitle>
+          <CardDescription>Simulated revenue for {formattedDateRange}</CardDescription>
         </div>
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
            <DatePickerWithRange />
-           {/* Optional: Add preset buttons here later */}
         </div>
       </CardHeader>
       
@@ -254,23 +236,18 @@ export default function RevenueChart() {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-[300px]">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">Loading revenue data...</p>
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center h-[300px] text-destructive">
-            <AlertCircle className="h-8 w-8 mb-2" />
-            <p>{error}</p>
+            <p className="text-muted-foreground">Generating demo revenue data...</p>
           </div>
         ) : data.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-[300px]">
             <DollarSign className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">No revenue data for the selected period.</p>
+            <p className="text-muted-foreground">No revenue data generated for the selected period.</p>
           </div>
         ) : (
           <>
             <div className="mb-4">
               <p className="text-2xl font-bold">{formatCurrency(totalRevenue)}</p>
-              <p className="text-xs text-muted-foreground">Total revenue for {formattedDateRange}</p>
+              <p className="text-xs text-muted-foreground">Total simulated revenue for {formattedDateRange}</p>
             </div>
             
             <div className="h-[300px] w-full">

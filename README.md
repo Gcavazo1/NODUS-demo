@@ -1,48 +1,56 @@
-# Nodus Payment Hub Template 💸
+# Nodus Payment Hub - Demo Build 🚀
 
-> A fully customizable, developer-first Next.js template for building a centralized payment processing hub. Supports Stripe (Cards, Apple Pay), Coinbase Commerce (Crypto), and Firebase for quotes/admin features.
+> A **demonstration version** of the Nodus Payment Hub template. This build showcases the frontend UI, client-side interactions, and simulated payment flows without requiring backend secrets or processing actual payments.
 
----
+--- 
 
-## ✨ Key Features
+## ✨ Demo Features & Limitations
 
-- 🔐 **Secure Stripe Checkout:** Handles Cards, Apple Pay, Google Pay.
-- ₿ **Crypto-Friendly:** Optional Coinbase Commerce integration for BTC/ETH payments.
-- 🧾 **Custom Quotes:** Built-in quote request form storing submissions in Firestore.
-- 👤 **Admin Dashboard:** Manage site settings, social links, and view quote submissions (requires Firebase Auth).
-- 🎨 **Configurable Offerings:** Define digital products and services in `src/config/offerings.ts`.
-- 📧 **Email Confirmations:** Optional integration with Resend for payment/quote confirmations.
+This demo build includes most of the frontend features:
+
+- **Simulated Stripe Checkout:** Initiates a Stripe-like flow but redirects to a success page without actual payment processing.
+- **Simulated Coinbase Checkout:** Initiates a Coinbase-like flow but redirects to a success page without actual payment processing.
+- **Simulated Quotes:** Quote form saves data to **browser Local Storage** instead of Firestore.
+- **Simulated Admin Dashboard:** Admin sections for Appearance and Payments read/write settings to **browser Local Storage**.
+- 🎨 **Configurable Offerings:** Still defined in `src/config/offerings.ts`.
 - 🧱 **Component-Based:** Built with shadcn/ui, Tailwind CSS, and reusable components.
 - 📱 **Responsive Design:** Mobile-first layout with drawer navigation.
 - 🌗 **Dark/Light Mode:** Theme support via `next-themes`.
-- 🔗 **Dynamic Footer Links:** Manageable through the admin panel.
-- ☁️ **Deploy-Ready:** Optimized for Vercel (frontend) and Firebase (backend/DB).
+- 🔗 **Dynamic Footer Links:** Manageable through the *simulated* admin panel (saved to Local Storage).
+- ☁️ **Deploy-Ready:** Optimized for Vercel frontend deployment.
 
----
+**Key Limitations:**
 
-## 🛠 Tech Stack
+- **No Real Payments:** Payment processing is simulated on the client-side.
+- **No Server-Side Logic:** API routes for webhooks, actual quote saving, etc., are disabled or bypassed.
+- **No Real Admin Auth:** Admin panel does not use Firebase Auth; settings are stored locally and insecurely.
+- **No Email Confirmations:** Resend integration is not used.
+- **No Firestore Interaction:** Data is saved to Local Storage for demonstration purposes.
 
-| Layer         | Tool/Service         | Purpose                          |
-| ------------- | -------------------- | -------------------------------- |
-| Frontend      | Next.js (App Router) | Modern, scalable React framework |
-| UI            | Tailwind CSS         | Utility-first CSS styling        |
-| Components    | shadcn/ui            | Reusable UI components           |
-| Hosting       | Vercel (Recommended) | CI/CD, Preview Deployments       |
-| Payments      | Stripe               | Card, Wallet Payments            |
-|               | Coinbase Commerce    | Cryptocurrency Payments          |
-| Backend DB    | Firebase Firestore   | Quote Submissions, Admin Data    |
-| Auth (Admin)  | Firebase Auth        | Secure Admin Panel Access        |
-| Emails (Opt.) | Resend               | Transactional Emails             |
+--- 
 
----
+## 🛠 Tech Stack (Demo Build)
 
-## 🚀 Getting Started (Local Development)
+| Layer         | Tool/Service         | Purpose                               |
+| ------------- | -------------------- | ------------------------------------- |
+| Frontend      | Next.js (App Router) | Modern, scalable React framework      |
+| UI            | Tailwind CSS         | Utility-first CSS styling             |
+| Components    | shadcn/ui            | Reusable UI components                |
+| Hosting       | Vercel (Recommended) | CI/CD, Preview Deployments            |
+| Payments (Sim)| Stripe (Client-Side) | *Simulated* Card/Wallet Checkout Flow |
+|               | Coinbase (Client-Side)| *Simulated* Crypto Checkout Flow      |
+| Demo Storage  | Browser Local Storage| Demo Quote/Admin Settings             |
+
+--- 
+
+## 🚀 Getting Started (Demo Build)
 
 1. **Clone:**
 
    ```bash
-   git clone https://github.com/your-github-username/nodus-payment-hub.git # Replace with your repo URL
-   cd nodus-payment-hub
+   # Ensure you have the correct repository URL for the demo build
+   git clone https://github.com/your-github-username/nodus-demo-build.git 
+   cd nodus-demo-build
    ```
 2. **Install Dependencies:**
 
@@ -53,14 +61,17 @@
 3. **Environment Variables:**
 
    - Copy `.env.example` to `.env.local`.
-   - Fill in your required keys for Firebase, Stripe, and optionally Coinbase/Resend.
+   - **Crucially, only `NEXT_PUBLIC_` variables are needed for the demo.** Fill these in:
+     - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (Test key is fine)
+     - `NEXT_PUBLIC_FIREBASE_...` variables (Needed for Firebase SDK initialization, even without backend use)
+     - `NEXT_PUBLIC_APP_URL` (Set to `http://localhost:3000` for local dev)
+   - **Secret keys (like `STRIPE_SECRET_KEY`, `COINBASE_COMMERCE_API_KEY`, `FIREBASE_SERVICE_ACCOUNT_JSON`) are NOT required for this demo build.**
 
    ```bash
    cp .env.example .env.local
-   # Now edit .env.local with your keys
+   # Now edit .env.local with only the required NEXT_PUBLIC_ keys
    ```
 
-   *(**Note:** `NEXT_PUBLIC_` variables are exposed client-side. Keep secret keys without the prefix.)*
 4. **Run Development Server:**
 
    ```bash
@@ -69,84 +80,70 @@
 
    Open [http://localhost:3000](http://localhost:3000).
 
----
+--- 
 
 ## 🧱 Architecture Overview
 
-This template uses the Next.js App Router structure:
+(Remains largely the same as the original template, but API routes in `src/app/api/` are mostly disabled or modified for demo purposes).
 
 ```plaintext
 /
 ├── public/             # Static assets
 ├── src/
-│   ├── app/            # App Router (pages, layouts, API routes)
+│   ├── app/            # App Router (pages, layouts, API routes - DEMO MODIFIED)
 │   ├── components/       # Reusable UI components (shadcn/ui based)
 │   ├── config/           # Site config (metadata, offerings, navigation)
-│   ├── lib/              # Utilities, hooks, service clients (Stripe, Firebase, etc.)
+│   ├── lib/              # Utilities, hooks, service clients (Firebase client SDK only)
 │   ├── styles/           # Global CSS
 │   └── types/            # TypeScript definitions
-├── functions/          # Firebase Cloud Functions (if used)
-├── docs/               # End-user documentation (separate from this README)
-├── scripts/            # Utility scripts (e.g., create-admin-user.js)
-├── .env.example        # Environment variable template
-├── next.config.mjs     # Next.js config (CSP headers here)
+├── .env.example        # Environment variable template (Demo focused)
+├── next.config.mjs     # Next.js config 
 ├── tailwind.config.js  # Tailwind config
-├── firebase.json       # Firebase hosting/functions config
-├── firestore.rules     # Firestore security rules
 └── package.json        # Dependencies & scripts
 ```
 
-**Key Principles:**
+--- 
 
-* **Configuration-Driven:** Easily update site info, products, and services in `src/config/`.
-* **Component-Based UI:** Leverages `shadcn/ui` for accessible and customizable components.
-* **Server/Client Separation:** Follows Next.js App Router conventions.
-* **Isolated Service Logic:** Stripe, Firebase, Coinbase interactions are in `src/lib/`.
-
----
-
-## 🔧 Customization
+## 🔧 Customization (Demo Build)
 
 - **Offerings:** Modify `src/config/offerings.ts`.
 - **Site Info:** Edit `src/config/site.ts`.
-- **Styling:** Update `tailwind.config.js` and global CSS. Theme variables are often tied to `shadcn/ui` setup.
-- **Admin Panel:** Access requires setting up Firebase Auth and creating an admin user (see `scripts/create-admin-user.js`).
+- **Styling:** Update `tailwind.config.js` and global CSS.
+- **Admin Panel Settings:** Interact with the admin panel in the running app to modify settings stored in your browser's Local Storage.
 - **Background Images:** Replace `light-background.jpg` / `dark-background.jpg` in `/public` and adjust opacity in `src/app/layout.tsx`.
 
-*(Refer to the documentation in the `/docs` folder for more detailed customization guides.)*
+--- 
 
----
-
-## ☁️ Deployment
+## ☁️ Deployment (Demo Build)
 
 - **Frontend:** Deploy seamlessly to [Vercel](https://vercel.com/) by connecting your GitHub repository.
-- **Backend/DB:** Firebase services (Firestore, Auth) are used. Ensure Firestore rules (`firestore.rules`) are deployed.
-- **Environment Variables:** Add your production environment variables to your Vercel project settings.
-- **Webhooks:** Configure Stripe and Coinbase webhook endpoints in their respective dashboards to point to your deployed API routes (e.g., `https://yourdomain.com/api/stripe/webhook`). Ensure webhook secrets are set in your production environment variables.
+- **Backend/DB:** **No backend services (Firestore, Functions, Auth) are actively used or required for this demo build.**
+- **Environment Variables:** Add ONLY the required `NEXT_PUBLIC_` variables to your Vercel project settings. **Crucially, set `NEXT_PUBLIC_APP_URL` to your actual Vercel deployment URL (e.g., `https://your-demo.vercel.app`).**
+- **Webhooks:** **Not applicable/needed** for the demo build as backend processing is disabled.
 
----
+--- 
 
 ## ⚠️ Security Note: Coinbase SDK
 
-The `coinbase-commerce-node` SDK may report dependency vulnerabilities (`npm audit`). Evaluate the risk based on your usage and consider alternatives if concerned.
+The `coinbase-commerce-node` SDK dependency might still be present and report vulnerabilities (`npm audit`). As the backend usage is disabled in the demo, the direct risk is minimal, but be aware if you intend to re-enable full functionality.
 
----
+--- 
 
-## 📈 Roadmap
+## 📈 Roadmap (Original Template)
 
-- [X] Admin Dashboard Foundation
-- [X] Responsive Design & Mobile Nav
-- [X] Dynamic Footer Links
-- [X] License Key Generation / Digital Delivery
-- [X] Optional CMS Integration (Contentful, Sanity)
-- [X] Enhanced Email Automation
+(This roadmap applies to the full, non-demo version of the template)
+
+- [ ] Admin Dashboard Foundation
+- [ ] Responsive Design & Mobile Nav
+- [ ] Dynamic Footer Links
+- [ ] License Key Generation / Digital Delivery
+- [ ] Optional CMS Integration (Contentful, Sanity)
+- [ ] Enhanced Email Automation
 - [ ] Additional Payment Gateways (Square, PayPal)
 - [ ] BNPL Integration (Stripe Afterpay/Klarna)
 
----
+--- 
 
 ## 📄 License
 
 *(Consider adding a specific license file, e.g., `LICENSE.md`, and referencing it here. Example: This project is licensed under the [MIT License](LICENSE.md).)*
-
-*(If this is a private repo for a commercial product, you might omit the License section or state that usage is governed by purchase terms.)*

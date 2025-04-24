@@ -69,6 +69,18 @@ export function UnifiedCheckoutFlow() {
     setError(null);
     setStep('processing');
 
+    // --- DEMO MODE MODIFICATION --- 
+    // Simulate processing and redirect to success page without actual payment
+    console.log(`[Demo Mode] Simulating ${provider} payment for offering: ${selectedOffering.id}`);
+    
+    // Simulate a brief processing delay
+    setTimeout(() => {
+      // Redirect to success page with a demo flag
+      window.location.href = '/success?demo=true';
+      // No need to set isLoading to false as we are navigating away
+    }, 1500); // 1.5 second delay
+
+    /* --- Original Payment Logic (Commented Out) --- 
     const payload = {
       offeringId: selectedOffering.id,
       name: customerInfo.name,
@@ -111,6 +123,7 @@ export function UnifiedCheckoutFlow() {
       setStep('payment'); // Revert to payment selection on error
       setIsLoading(false);
     }
+    */
   };
 
   // --- Conditional Rendering Logic ---

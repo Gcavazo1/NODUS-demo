@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Bitcoin } from "lucide-react";
+import { Bitcoin, CreditCard } from "lucide-react";
 
 // Define the expected props
 interface PaymentMethodSelectionProps {
@@ -26,9 +26,14 @@ export function PaymentMethodSelection({
           <Button 
             onClick={() => onSelect('stripe')} 
             disabled={isLoading}
-            className="flex-1"
+            className="flex-1 text-xs sm:text-sm md:text-base px-2 sm:px-4 h-auto py-3"
           >
-            {isLoading ? 'Processing...' : 'Pay with Card (Stripe)'}
+            {isLoading ? 'Processing...' : (
+              <>
+                <CreditCard className="mr-2 h-4 w-4" />
+                <span className="whitespace-normal">Pay with Card</span>
+              </>
+            )}
           </Button>
 
          {/* Coinbase Button */}
@@ -36,10 +41,15 @@ export function PaymentMethodSelection({
           <Button 
             onClick={() => onSelect('coinbase')} 
             disabled={isLoading}
-            variant="outline" // Example styling
-            className="flex-1"
+            variant="outline"
+            className="flex-1 text-xs sm:text-sm md:text-base px-2 sm:px-4 h-auto py-3"
           >
-            {isLoading ? 'Processing...' : <><Bitcoin className="mr-2 h-4 w-4" /> Pay with Crypto (Coinbase)</>}
+            {isLoading ? 'Processing...' : (
+              <>
+                <Bitcoin className="mr-2 h-4 w-4" />
+                <span className="whitespace-normal">Pay with Crypto</span>
+              </>
+            )}
           </Button>
        </div>
     </div>

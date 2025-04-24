@@ -1,12 +1,46 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 // import { useThemeSettings } from "@/context/ThemeSettingsContext"; // Old import
-import { useSiteSettings } from "@/context/SiteSettingsContext"; // New import
+// import { useSiteSettings } from "@/context/SiteSettingsContext"; // New import
 // Removed Image import as we are using CSS background
 // import Image from 'next/image'; 
+
+// --- DEMO MODE: Local Storage Key and Settings Structure ---
+const LOCAL_STORAGE_KEY = 'demoAdminSettings';
+
+// Define structure for settings expected from Local Storage
+interface DemoThemeSettings {
+  selectedTheme: string;
+  lightOverlayOpacity: number;
+  darkOverlayOpacity: number;
+  // other fields like lightOverlayColor, darkOverlayColor, colors exist but are not directly used here
+}
+interface DemoSettings {
+  theme: DemoThemeSettings;
+  // other top-level keys like socialLinks, payments exist but are not directly used here
+}
+
+// Helper to safely parse JSON and get theme settings
+const getThemeSettingsFromLS = (): DemoThemeSettings | null => {
+    const storedSettings = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!storedSettings) return null;
+    try {
+        const parsed = JSON.parse(storedSettings);
+        // Basic validation
+        if (parsed && parsed.theme && typeof parsed.theme.selectedTheme === 'string') {
+            return parsed.theme as DemoThemeSettings;
+        }
+        return null;
+    } catch (e) {
+        console.error("[BackgroundImage] Error parsing settings from Local Storage:", e);
+        return null;
+    }
+};
+
+// --- End DEMO MODE definitions ---
 
 /**
  * BackgroundImage component props
@@ -25,14 +59,6 @@ interface BackgroundImageProps {
    */
   lightImageUrl?: string;
   /**
-   * Optional override for light overlay opacity (0-1)
-   */
-  lightOverlayOpacity?: number;
-  /**
-   * Optional override for dark overlay opacity (0-1)
-   */
-  darkOverlayOpacity?: number;
-  /**
    * Preload the alternate theme image for faster theme switching
    */
   preloadAlternateTheme?: boolean;
@@ -43,60 +69,59 @@ interface BackgroundImageProps {
 }
 
 /**
- * BackgroundImage Component
- * 
- * Responsive background image component that changes based on the current theme.
- * Uses context for theme settings and handles loading states and errors.
+ * BackgroundImage Component (Demo Mode: Reads from Local Storage)
  */
 export function BackgroundImage({
   className,
-  // Fallback image paths if theme settings can't be loaded
-  darkImageUrl = "/images/centralized-dark-background.jpg",
-  lightImageUrl = "/images/centralized-light-background.jpg",
-  lightOverlayOpacity,
-  darkOverlayOpacity,
+  // Fallback URLs are still useful if LS fails
+  darkImageUrl = "/images/centralized-dark-background.jpg", // Default fallback
+  lightImageUrl = "/images/centralized-light-background.jpg", // Default fallback
   preloadAlternateTheme = true,
   blurAmount,
 }: BackgroundImageProps) {
   const { theme, systemTheme } = useTheme();
-  // Use the new context hook
-  const { siteSettings, isLoading: isSiteSettingsLoading } = useSiteSettings();
-  
   const [mounted, setMounted] = useState(false);
   const [imageError, setImageError] = useState(false);
+  // State to hold theme settings read from Local Storage
+  const [currentThemeSettings, setCurrentThemeSettings] = useState<DemoThemeSettings | null>(null);
 
-  // Set mounted state on client side
-  useEffect(() => {
-    setMounted(true);
+  // Function to load settings from LS and update state
+  const loadAndApplySettings = useCallback(() => {
+      const settings = getThemeSettingsFromLS();
+      setCurrentThemeSettings(settings);
+      console.log("[BackgroundImage] Loaded settings from LS:", settings);
+
+      // Apply opacities from loaded settings
+      const lightOpacity = settings?.lightOverlayOpacity ?? 0.25; // Default fallback
+      const darkOpacity = settings?.darkOverlayOpacity ?? 0.72; // Default fallback
+      
+      document.documentElement.style.setProperty('--light-overlay-opacity', lightOpacity.toString());
+      document.documentElement.style.setProperty('--dark-overlay-opacity', darkOpacity.toString());
+      console.log(`[BackgroundImage] Applied opacities - Light: ${lightOpacity}, Dark: ${darkOpacity}`);
+
   }, []);
 
-  // Set CSS variables for opacity using siteSettings.theme
+  // Load initial settings on mount
   useEffect(() => {
-    if (mounted && !isSiteSettingsLoading) {
-      // Use prop values first, then fallback to context values from siteSettings.theme
-      const lightOpacity = lightOverlayOpacity ?? siteSettings.theme.lightOverlayOpacity;
-      const darkOpacity = darkOverlayOpacity ?? siteSettings.theme.darkOverlayOpacity;
-      
-      // Set CSS custom properties for the overlay opacities
-      document.documentElement.style.setProperty(
-        '--light-overlay-opacity', 
-        lightOpacity.toString()
-      );
-      document.documentElement.style.setProperty(
-        '--dark-overlay-opacity', 
-        darkOpacity.toString()
-      );
-  }
-  }, [
-    mounted, 
-    isSiteSettingsLoading, 
-    siteSettings.theme.lightOverlayOpacity, // Dependency on theme settings
-    siteSettings.theme.darkOverlayOpacity, // Dependency on theme settings
-    lightOverlayOpacity,
-    darkOverlayOpacity
-  ]);
+    setMounted(true);
+    loadAndApplySettings();
+  }, [loadAndApplySettings]);
 
-  // Determine the correct theme - handle SSR and system preferences
+  // Add listener for storage changes
+  useEffect(() => {
+     const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === LOCAL_STORAGE_KEY) {
+        console.log("[BackgroundImage] Detected storage change, reloading settings...");
+        loadAndApplySettings();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [loadAndApplySettings]);
+
+  // Determine the correct theme mode (light/dark)
   const resolvedTheme = useMemo(() => {
     if (!mounted) return "light"; // Default during SSR
     return theme === "system" ? systemTheme : theme;
@@ -104,25 +129,28 @@ export function BackgroundImage({
 
   const isLightMode = resolvedTheme === "light";
   
-  // Calculate image paths using siteSettings.theme.selectedTheme
-  const themePath = `/images/${isSiteSettingsLoading ? 'centralized' : siteSettings.theme.selectedTheme}`;
+  // Determine selected theme name from state (read from LS), fallback to 'centralized'
+  const selectedThemeName = currentThemeSettings?.selectedTheme || 'centralized';
+  
+  // Calculate image paths using selectedThemeName
+  const themePath = `/images/${selectedThemeName}`;
   const mainImageUrl = isLightMode 
     ? `${themePath}-light-background.jpg` 
     : `${themePath}-dark-background.jpg`;
   
-  // During loading or error, use the provided default paths
-  const displayUrl = isSiteSettingsLoading || imageError
+  // Use fallback URLs if LS load failed or image error occurred
+  const displayUrl = imageError
     ? (isLightMode ? lightImageUrl : darkImageUrl) 
     : mainImageUrl;
   
-  // Determine alternate theme image for preloading using siteSettings.theme.selectedTheme
+  // Determine alternate theme image for preloading
   const alternateImageUrl = isLightMode
     ? `${themePath}-dark-background.jpg`
     : `${themePath}-light-background.jpg`;
   
   const themeBgClass = isLightMode ? "theme-light-bg" : "theme-dark-bg";
 
-  // If not mounted, render an empty div to avoid hydration mismatch
+  // Avoid rendering on server or before mount
   if (!mounted) {
     return <div className={cn("fixed inset-0 -z-10", className)} />;
   }
@@ -130,21 +158,21 @@ export function BackgroundImage({
   return (
     <div className={cn(
         "fixed inset-0 -z-10 overflow-hidden", 
-        themeBgClass,
+        themeBgClass, 
         className
       )}>
-      {/* Background image - Overlay is handled by globals.css */}
+      {/* Background image div */}
       <div
         className={cn(
           "absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000",
           blurAmount && `backdrop-blur-${blurAmount}`
         )}
         style={{ backgroundImage: `url(${displayUrl})` }}
-        key={displayUrl}
-        onError={() => setImageError(true)}
+        key={displayUrl} // Re-render if URL changes
+        onError={() => setImageError(true)} // Set error state on image load fail
       />
       
-      {/* Preload the alternate theme image for faster theme switching */}
+      {/* Preload link */}
       {preloadAlternateTheme && (
         <link
           rel="preload"

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
-import { collection, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
+// Removed Firestore imports
+// import { db } from '@/lib/firebase';
+// import { collection, query, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { Order } from '@/lib/definitions'; // Import the Order type
 import {
   Table,
@@ -16,39 +17,61 @@ import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns'; // For date formatting
 import { CreditCard, Bitcoin } from 'lucide-react'; // Import icons for payment methods
 
-// Helper function to format Firestore Timestamp or Date to string
-const formatTimestamp = (timestamp: Timestamp | Date | string): string => {
-  if (!timestamp) return 'N/A';
-  let date: Date;
-  if (timestamp instanceof Timestamp) {
-    date = timestamp.toDate();
-  } else if (timestamp instanceof Date) {
-    date = timestamp;
-  } else if (typeof timestamp === 'string') {
-    date = new Date(timestamp);
-  } else {
-      return 'Invalid Date';
+// --- DEMO MODE: Fake Data Generation ---
+const generateFakeOrders = (count = 20): Order[] => {
+  const orders: Order[] = [];
+  const statuses: Order['status'][] = ['completed', 'completed', 'pending', 'processing', 'canceled', 'refunded'];
+  const providers = ['stripe', 'coinbase'];
+  const now = new Date();
+
+  for (let i = 0; i < count; i++) {
+    const provider = providers[Math.floor(Math.random() * providers.length)];
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const createdAt = new Date(now.getTime() - i * Math.random() * 5 * 24 * 60 * 60 * 1000); // Within last ~50 days
+
+    orders.push({
+      id: `ord_demo_${Math.random().toString(36).substring(2, 10)}`,
+      customerId: `cust_demo_${Math.random().toString(36).substring(2, 8)}`,
+      status: status,
+      provider: provider,
+      totalAmount: Math.floor(Math.random() * 30000) + 2000, // 20 - 320 USD
+      createdAt: createdAt,
+      updatedAt: new Date(createdAt.getTime() + Math.random() * 1000 * 60 * 60), // Updated within an hour
+      items: [{ id: `prod_demo_${i}`, quantity: 1 }], // Simple item
+      // Add other optional fields if needed by the table
+    });
   }
-  
-  if (isNaN(date.getTime())) {
-      return 'Invalid Date';
-  }
-  
-  try {
-      return format(date, 'PPpp'); // Format like: Aug 16, 2023 at 3:30:00 PM
-  } catch (error) {
-      console.error("Error formatting date:", error);
-      return 'Invalid Date';
-  }
+  return orders.sort((a, b) => (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime());
+};
+// --- End DEMO MODE ---
+
+// Helper function to format Date (removed Timestamp logic)
+const formatTimestamp = (timestamp: Date | string | undefined): string => {
+   // ... (simplified formatting logic for Date)
+   if (!timestamp) return 'N/A';
+    let date: Date;
+    if (timestamp instanceof Date) {
+        date = timestamp;
+    } else if (typeof timestamp === 'string') {
+        date = new Date(timestamp);
+    } else {
+        return 'Invalid Date';
+    }
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    try {
+        return format(date, 'PPpp');
+    } catch (error) {
+        return 'Invalid Date';
+    }
 };
 
-// Helper to format currency (assuming price is in cents)
+// Helper to format currency (remains the same)
 const formatCurrency = (amount: number | null | undefined): string => {
   if (amount === null || amount === undefined) return 'N/A';
   return `$${(amount / 100).toFixed(2)}`;
 };
 
-// Helper to get provider icon and display name
+// Helper to get provider icon and display name (remains the same)
 const getProviderDisplay = (provider: string | undefined) => {
   if (!provider) return { name: 'Unknown', icon: null };
   
@@ -62,47 +85,37 @@ const getProviderDisplay = (provider: string | undefined) => {
   }
 };
 
-export default function AdminOrders() {
+export default function AdminOrders({ demoMode = false }: { demoMode?: boolean }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Removed error state: const [error, setError] = useState<string | null>(null);
 
+  // Load fake data if in demo mode
   useEffect(() => {
-    const fetchOrders = async () => {
+    if (demoMode) {
       setIsLoading(true);
-      setError(null);
-      try {
-        const ordersRef = collection(db, 'orders');
-        // Query the last 50 orders, ordered by creation date descending
-        const q = query(ordersRef, orderBy('createdAt', 'desc'), limit(50));
-        const querySnapshot = await getDocs(q);
-        
-        const fetchedOrders: Order[] = [];
-        querySnapshot.forEach((doc) => {
-          // Ensure the data conforms to the Order type, including the id
-          fetchedOrders.push({ id: doc.id, ...doc.data() } as Order);
-        });
-        setOrders(fetchedOrders);
-
-      } catch (err: unknown) {
-        console.error("Error fetching orders:", err);
-        setError("Failed to fetch orders. Please try again later.");
-      } finally {
+      // Simulate async loading slightly
+      setTimeout(() => {
+         setOrders(generateFakeOrders());
+         setIsLoading(false);
+      }, 200);
+    } else {
+        // TODO: Implement non-demo mode loading
+        console.warn("AdminOrders: Non-demo mode not implemented.");
         setIsLoading(false);
-      }
-    };
+    }
+  }, [demoMode]);
 
-    fetchOrders();
-  }, []);
+  // Removed original Firestore fetching useEffect
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold mb-4">Recent Orders</h1>
+      <h1 className="text-2xl font-semibold mb-4">Recent Orders (Demo)</h1>
       
-      {isLoading && <p>Loading orders...</p>}
-      {error && <p className="text-destructive">{error}</p>}
+      {isLoading && <p>Loading demo orders...</p>}
+      {/* Removed error display */}
 
-      {!isLoading && !error && (
+      {!isLoading && (
         <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
@@ -119,7 +132,7 @@ export default function AdminOrders() {
               {orders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center h-24">
-                    No orders found.
+                    No demo orders generated.
                   </TableCell>
                 </TableRow>
               ) : (
