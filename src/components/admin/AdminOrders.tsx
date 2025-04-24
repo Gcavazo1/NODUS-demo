@@ -28,16 +28,26 @@ const generateFakeOrders = (count = 20): Order[] => {
     const provider = providers[Math.floor(Math.random() * providers.length)];
     const status = statuses[Math.floor(Math.random() * statuses.length)];
     const createdAt = new Date(now.getTime() - i * Math.random() * 5 * 24 * 60 * 60 * 1000); // Within last ~50 days
+    const unitPrice = Math.floor(Math.random() * 30000) + 2000; // 20 - 320 USD
+    const quantity = Math.floor(Math.random() * 3) + 1; // 1-3 items
+    const totalPrice = unitPrice * quantity;
 
     orders.push({
       id: `ord_demo_${Math.random().toString(36).substring(2, 10)}`,
       customerId: `cust_demo_${Math.random().toString(36).substring(2, 8)}`,
       status: status,
       provider: provider,
-      totalAmount: Math.floor(Math.random() * 30000) + 2000, // 20 - 320 USD
+      totalAmount: totalPrice, // Use calculated total price
       createdAt: createdAt,
       updatedAt: new Date(createdAt.getTime() + Math.random() * 1000 * 60 * 60), // Updated within an hour
-      items: [{ id: `prod_demo_${i}`, quantity: 1 }], // Simple item
+      items: [{
+        id: `item_demo_${i}`,
+        productId: `prod_demo_${Math.random().toString(36).substring(2, 8)}`,
+        name: `Demo Product ${i + 1}`,
+        quantity: quantity,
+        unitPrice: unitPrice,
+        totalPrice: totalPrice
+      }], // Add missing properties
       // Add other optional fields if needed by the table
     });
   }
