@@ -57,7 +57,7 @@ const formatTimestamp = (timestamp: Date | string | undefined): string => {
     if (isNaN(date.getTime())) return 'Invalid Date';
     try {
         return format(date, 'PPpp');
-    } catch (error) {
+    } catch {
         return 'Invalid Date';
     }
 };

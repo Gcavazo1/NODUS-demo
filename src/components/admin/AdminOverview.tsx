@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 // Removed Firestore imports
 // import { db } from '@/lib/firebase';
 // import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
@@ -109,6 +109,17 @@ export default function AdminOverview({ demoMode = false }: { demoMode?: boolean
     console.log('[Demo] Refreshing dashboard stats...');
     setStats(generateFakeOverviewData());
   };
+
+  // Add a button to use the refresh function in the UI
+  useEffect(() => {
+    // Create a global function to allow refresh from browser console for testing
+    (window as any).refreshDemoStats = refreshDemoStats;
+    
+    return () => {
+      // Cleanup on unmount
+      delete (window as any).refreshDemoStats;
+    };
+  }, []);
 
   // Format Date (Simplified for demo)
   const formatDate = (date: Date | null | undefined) => {

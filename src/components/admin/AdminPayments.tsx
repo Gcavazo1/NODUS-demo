@@ -5,7 +5,7 @@ import { usePaymentConfig } from '@/context/PaymentConfigContext';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, CreditCard, Bitcoin, RefreshCw, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { ExternalLink, CreditCard, Bitcoin, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import {
   Table,
