@@ -21,10 +21,10 @@ export default function CancelPage() {
             If you were having trouble, please try again or contact support.
           </p>
           <div className="flex gap-4 justify-center">
-            <Button asChild variant="outline">
+            <Button variant="outline">
               <Link href="/">Return to Homepage</Link>
             </Button>
-             <Button asChild>
+             <Button>
               <Link href="/#products">View Products</Link>
             </Button>
           </div>
