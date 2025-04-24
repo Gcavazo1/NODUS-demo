@@ -71,13 +71,13 @@ const getSettingsFromLS = (): DemoSettings | null => {
 
 export function ThemeColorApplier() {
   const { resolvedTheme } = useTheme();
-  const [settingsVersion, setSettingsVersion] = useState(0);
+  const [settingsVersion, setSettingsVersion] = useState(0); // Used to trigger re-apply on storage change
 
-  const applyColors = useCallback(() => {
+  // Define applyColors WITHOUT calling getSettingsFromLS initially
+  const applyColors = useCallback((currentSettings: DemoSettings | null) => {
     const themeMode = resolvedTheme === 'dark' ? 'dark' : 'light';
-    const siteSettings = getSettingsFromLS(); // Use updated helper
-
-    console.log(`[ThemeColorApplier Debug] Attempting to apply ${themeMode} colors. LS data:`, siteSettings);
+    
+    console.log(`[ThemeColorApplier Debug] Attempting to apply ${themeMode} colors. Settings:`, currentSettings);
 
     // Define *all* the variables we might potentially set based on globals.css
     const cssColorVariables = [
@@ -86,7 +86,6 @@ export function ThemeColorApplier() {
       'secondary', 'secondary-foreground', 'muted', 'muted-foreground',
       'accent', 'accent-foreground', 'destructive', 'destructive-foreground',
       'border', 'input', 'ring',
-      // Overlays (color only, opacity handled elsewhere or by CSS)
       'light-overlay', 'dark-overlay' 
     ];
 
@@ -96,26 +95,23 @@ export function ThemeColorApplier() {
     });
     console.log("[ThemeColorApplier Debug] Reset CSS variables.");
 
-    if (!siteSettings?.theme) {
-        console.log("[ThemeColorApplier] No valid theme settings found in parsed LS data.");
+    if (!currentSettings?.theme) {
+        console.log("[ThemeColorApplier] No valid theme settings found in provided settings.");
         return; 
     }
 
     // Apply custom theme colors from the 'colors' object
-    const colorsForMode = siteSettings.theme.colors?.[themeMode];
+    const colorsForMode = currentSettings.theme.colors?.[themeMode];
     if (colorsForMode && typeof colorsForMode === 'object') {
        console.log(`[ThemeColorApplier Debug] Applying custom ${themeMode} colors:`, colorsForMode);
        Object.entries(colorsForMode).forEach(([key, value]) => {
-           // Ensure the key is one we intend to manage and value is a string
-           const cssVarName = key.replace(/([A-Z])/g, '-$1').toLowerCase(); // Convert camelCase to kebab-case if needed
+           const cssVarName = key.replace(/([A-Z])/g, '-$1').toLowerCase();
            if (cssColorVariables.includes(cssVarName) && typeof value === 'string') {
                console.log(`[ThemeColorApplier Debug] Setting --${cssVarName} to ${value}`);
                document.documentElement.style.setProperty(`--${cssVarName}`, value);
-                // Handle special case: popover often matches card background
                 if (cssVarName === 'card') {
                      document.documentElement.style.setProperty('--popover', value);
                 }
-                // Handle special case: card-foreground often matches foreground
                  if (cssVarName === 'foreground') {
                      document.documentElement.style.setProperty('--card-foreground', value);
                      document.documentElement.style.setProperty('--popover-foreground', value);
@@ -129,43 +125,53 @@ export function ThemeColorApplier() {
     }
     
     // Apply overlay colors directly from theme root
-    if (siteSettings.theme.lightOverlayColor) {
-        console.log(`[ThemeColorApplier Debug] Setting --light-overlay to ${siteSettings.theme.lightOverlayColor}`);
-        document.documentElement.style.setProperty('--light-overlay', siteSettings.theme.lightOverlayColor);
+    if (currentSettings.theme.lightOverlayColor) {
+        console.log(`[ThemeColorApplier Debug] Setting --light-overlay to ${currentSettings.theme.lightOverlayColor}`);
+        document.documentElement.style.setProperty('--light-overlay', currentSettings.theme.lightOverlayColor);
     }
-    if (siteSettings.theme.darkOverlayColor) {
-         console.log(`[ThemeColorApplier Debug] Setting --dark-overlay to ${siteSettings.theme.darkOverlayColor}`);
-        document.documentElement.style.setProperty('--dark-overlay', siteSettings.theme.darkOverlayColor);
+    if (currentSettings.theme.darkOverlayColor) {
+         console.log(`[ThemeColorApplier Debug] Setting --dark-overlay to ${currentSettings.theme.darkOverlayColor}`);
+        document.documentElement.style.setProperty('--dark-overlay', currentSettings.theme.darkOverlayColor);
     }
     
     console.log("[ThemeColorApplier Debug] Finished applying styles.");
 
-  }, [resolvedTheme]);
+  }, [resolvedTheme]); // Only depends on resolvedTheme now
+
+  // Function to fetch settings and apply colors (CLIENT-SIDE ONLY)
+  const fetchAndApply = useCallback(() => {
+      const settings = getSettingsFromLS(); // Call LS access here
+      applyColors(settings);
+  }, [applyColors]);
 
   // Apply on initial mount and theme change
   useEffect(() => {
-      applyColors();
-  }, [applyColors]); // applyColors depends on resolvedTheme
+      console.log("[ThemeColorApplier] Mount/theme change effect - Fetching and applying...");
+      fetchAndApply();
+  }, [resolvedTheme, fetchAndApply]); // Add fetchAndApply dependency
 
   // Apply on storage change
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === LOCAL_STORAGE_KEY) {
-        console.log("[ThemeColorApplier] Detected storage change, re-applying colors...");
-        setSettingsVersion(v => v + 1); // Trigger re-run of the main effect
+        console.log("[ThemeColorApplier] Detected storage change, triggering re-apply...");
+        setSettingsVersion(v => v + 1); // Trigger re-run of the settingsVersion effect
       }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []); // Listen for storage changes independently
+  }, []); 
 
   // Re-apply if settingsVersion changes (triggered by storage listener)
   useEffect(() => {
-      console.log("[ThemeColorApplier] Re-applying due to settingsVersion change.");
-      applyColors();
-  }, [settingsVersion, applyColors]); 
+      // Avoid running on initial mount if settingsVersion is 0
+      if (settingsVersion > 0) { 
+        console.log("[ThemeColorApplier] Re-applying due to settingsVersion change.");
+        fetchAndApply();
+      }
+  }, [settingsVersion, fetchAndApply]); // Add fetchAndApply dependency
   
   return null; 
 } 
