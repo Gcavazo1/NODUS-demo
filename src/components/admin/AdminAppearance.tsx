@@ -484,7 +484,6 @@ export default function AdminAppearance({ demoMode = true }: { demoMode?: boolea
             <ThemeColorsSettings 
                 initialColors={allSettings.theme.colors}
                 onColorsChange={updateThemeColors}
-                disabled={isSaving}
             />
         </CardContent>
          <CardFooter className="justify-end">
