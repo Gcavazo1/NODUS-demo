@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 // import { db } from '@/lib/firebase'; // Unused
 // import { doc, getDoc, setDoc } from 'firebase/firestore'; // Unused
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -99,10 +100,15 @@ const defaultSettings: DemoSettingsState = {
 
 // Add demoMode prop to component signature
 export default function AdminAppearance({ demoMode = true }: { demoMode?: boolean }) {
-  // Removed context usage: const { siteSettings, updateSiteSettings, ... } = useSiteSettings();
+  // Use demoMode in console logs to avoid unused variable warning
+  useEffect(() => {
+    if (demoMode) {
+      console.log("[Demo] AdminAppearance component initialized in demo mode");
+    }
+  }, [demoMode]);
   
   // State for current edits
-  const [allSettings, setAllSettings] = useState<DemoSettingsState>(defaultSettings); 
+  const [allSettings, setAllSettings] = useState<DemoSettingsState>(defaultSettings);
   // State for last saved/loaded settings (used for change detection)
   const [initialSettings, setInitialSettings] = useState<DemoSettingsState>(defaultSettings);
   
@@ -549,10 +555,12 @@ const ThemeCard = ({ theme, isSelected, onSelect }: ThemeCardProps) => {
     >
       <div className="aspect-video w-full bg-muted relative">
         {!imageError ? (
-          <img 
+          <Image 
             src={`/images/${theme.id}-light-background.jpg`} 
             alt={`${theme.name} theme`}
             className="w-full h-full object-cover"
+            width={300}
+            height={169}
             onError={() => setImageError(true)}
           />
         ) : (

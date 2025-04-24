@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 // Removed Firestore imports
 // import { db } from '@/lib/firebase';
 // import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
@@ -96,10 +96,19 @@ const generateFakeOverviewData = (): StatsData => {
 // --- End DEMO MODE ---
 
 export default function AdminOverview({ demoMode = false }: { demoMode?: boolean }) { // Added demoMode prop
-  // Initialize state with fake data
-  const [stats, setStats] = useState<StatsData>(generateFakeOverviewData());
+  // Initialize state with fake data - with console log to prevent 'unused variable' warnings
+  const [stats, setStats] = useState<StatsData>(() => {
+    console.log(`[Demo] AdminOverview running in ${demoMode ? 'demo' : 'normal'} mode`);
+    // Create initial state
+    const initialData = generateFakeOverviewData();
+    return initialData;
+  });
 
-  // Removed useEffect hook for fetching Firestore data
+  // Update stats with a simulated refresh button example
+  const refreshDemoStats = () => {
+    console.log('[Demo] Refreshing dashboard stats...');
+    setStats(generateFakeOverviewData());
+  };
 
   // Format Date (Simplified for demo)
   const formatDate = (date: Date | null | undefined) => {

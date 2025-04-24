@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from 'next/server';
 // import { Stripe } from 'stripe'; // Unused in demo
 // import { stripe } from '@/lib/stripe'; // Unused in demo

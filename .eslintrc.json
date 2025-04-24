@@ -1,0 +1,10 @@
+{
+  "extends": [
+    "next/core-web-vitals"
+  ],
+  "rules": {
+    // Relax some rules for demo purposes
+    "@next/next/no-img-element": "warn",
+    "@typescript-eslint/no-unused-vars": "warn"
+  }
+} 

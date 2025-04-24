@@ -47,20 +47,12 @@ const generateFakeOrders = (count = 20): Order[] => {
 
 // Helper function to format Date (removed Timestamp logic)
 const formatTimestamp = (timestamp: Date | string | undefined): string => {
-   // ... (simplified formatting logic for Date)
-   if (!timestamp) return 'N/A';
-    let date: Date;
-    if (timestamp instanceof Date) {
-        date = timestamp;
-    } else if (typeof timestamp === 'string') {
-        date = new Date(timestamp);
-    } else {
-        return 'Invalid Date';
-    }
+    if (!timestamp) return 'N/A';
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
     if (isNaN(date.getTime())) return 'Invalid Date';
     try {
         return format(date, 'PPpp');
-    } catch (error) {
+    } catch {
         return 'Invalid Date';
     }
 };
