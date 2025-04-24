@@ -1,18 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Stripe } from 'stripe';
-import { stripe } from '@/lib/stripe';
-import { getAdminFirestoreInstance } from '@/lib/firebase-admin';
-import { 
-  recordWebhookEvent,
-  processCompletedCheckout, 
-  checkPaymentExistsByMetadata,
-  updateWebhookEventStatus,
-  checkWebhookEventProcessed
-} from '@/lib/server-firestore';
-import { WebhookPayload } from '@/lib/server-firestore';
+import { NextResponse } from 'next/server';
+// import { Stripe } from 'stripe'; // Unused in demo
+// import { stripe } from '@/lib/stripe'; // Unused in demo
+// import { getAdminFirestoreInstance } from '@/lib/firebase-admin'; // Unused in demo
+// import { // Unused in demo
+//   recordWebhookEvent,
+//   processCompletedCheckout, 
+//   checkPaymentExistsByMetadata,
+//   updateWebhookEventStatus,
+//   checkWebhookEventProcessed
+// } from '@/lib/server-firestore';
+// import { WebhookPayload } from '@/lib/server-firestore'; // Unused in demo
 
 // Stripe webhook handler - DISABLED FOR DEMO
-export async function POST(request: NextRequest) {
+export async function POST(/* request: NextRequest */) { // Parameter removed/commented
     console.log("[DEMO MODE] Stripe webhook endpoint hit, but processing is disabled.");
     return NextResponse.json({ received: true, message: "Demo mode: Webhook processing disabled." });
 
@@ -101,8 +101,8 @@ export async function POST(request: NextRequest) {
 
     // Return a 200 response to acknowledge receipt of the event
     return NextResponse.json({ received: true });
-  } catch (error: any) {
-    console.error('Webhook error:', error.message);
+  } catch { // Removed unused 'error' variable
+    console.error('Webhook error'); // Simplified error message
     return NextResponse.json(
       { error: 'Webhook handler failed' },
       { status: 500 }

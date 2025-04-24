@@ -97,7 +97,8 @@ const defaultSettings: DemoSettingsState = {
 };
 // --- End DEMO DEFAULTS ---
 
-export default function AdminAppearance() {
+// Add demoMode prop to component signature
+export default function AdminAppearance({ demoMode = true }: { demoMode?: boolean }) {
   // Removed context usage: const { siteSettings, updateSiteSettings, ... } = useSiteSettings();
   
   // State for current edits
