@@ -31,9 +31,9 @@ const generateFakeUsers = (count = 2): AdminUser[] => {
   for (let i = 1; i < count; i++) {
       users.push({
           id: `auth_demo_user${i}`,
-          name: `Demo Editor ${i}`,
-          email: `editor${i}@demo.com`,
-          role: 'editor', // Example other role
+          name: `Demo Viewer ${i}`,
+          email: `viewer${i}@demo.com`,
+          role: 'viewer',
           createdAt: new Date(),
           updatedAt: new Date(),
       });
