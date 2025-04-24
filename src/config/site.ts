@@ -55,7 +55,7 @@ export type SiteConfig = {
  * Central configuration for site metadata, contact info, and creator details
  */
 export const siteConfig: SiteConfig = {
-  name: "Nodus Payment Hub",
+  name: "Nodus DEMO Hub",
   description: "A centralized payment processing hub for creators, developers, and freelancers.",
   url: process.env.NEXT_PUBLIC_APP_URL || "https://your-domain.com",
   ogImage: "/images/og-image.jpg",
